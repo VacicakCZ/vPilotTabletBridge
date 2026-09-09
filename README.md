@@ -24,26 +24,33 @@ the architecture level:
 - Every message is appended to an in-memory log (last 300 entries).
 - A small HTTP server, built directly on `TcpListener` (not
   `System.Net.HttpListener`, which needs admin rights or a `netsh` URL
-  reservation to bind anything but `localhost`), serves the page and a JSON
-  API: `GET /api/messages`, `/api/status`, `/api/controllers`, `/api/traffic`,
-  and `POST /api/connect`, `/api/disconnect`, `/api/send`, `/api/metar`,
-  `/api/atis`, `/api/settings` for the actions the tablet can trigger.
+  reservation to bind anything but `localhost`), serves the page (`GET /`),
+  the QR connect page (`GET /qr`), a JSON API - `GET /api/messages`,
+  `/api/status`, `/api/controllers`, `/api/traffic` - and the actions the
+  tablet can trigger: `POST /api/connect`, `/api/disconnect`, `/api/send`,
+  `/api/metar`, `/api/atis`, `/api/settings`, `/api/modec`, `/api/ident`.
 - The page beeps on a new message, with a distinct, more insistent tone
-  specifically for SELCAL alerts; sounds can be turned off entirely from
-  the settings (⚙) panel.
+  specifically for SELCAL alerts, and a separate rising/falling tone for
+  connecting/disconnecting from the network; sounds can be turned off
+  entirely from the settings (⚙) panel.
 - The page requests a screen wake lock so the tablet doesn't dim/lock
   itself while it's open - see the caveat about this below.
 
 Two things vPilot's plugin API has no getter for at all, so they simply
 aren't in this UI: current COM1/COM2 frequency and TX/RX state, and flight
 plan filing (no `RequestFlightPlan`/`FileFlightPlan` method exists in the
-installed vPilot version's plugin API). A transponder (Mode C) toggle was
-tried too, but was dropped - the API has a setter but no getter for it, so
-the tablet could only ever show "the last state we set from here," not the
-real state, which wasn't worth the confusion.
+installed vPilot version's plugin API). Mode C *is* exposed as a setter
+(no getter) - see "Transponder" below for how that's handled given there's
+no way to show its real state.
 
-Everything is self-contained: no internet access, no external libraries,
-just the plugin DLL sitting in vPilot's `Plugins` folder.
+Mostly self-contained: no runtime dependency beyond vPilot's own plugin
+API, and the only vendored third-party code is a small QR-code library
+bundled directly into `www/qr.html` (see "License"). Two opt-in features -
+the flight-plan quick buttons and the Friends tab - need the *tablet's*
+own internet access to reach VATSIM's public data feed directly, since
+vPilot's plugin API has no flight-plan data to give a plugin at all;
+everything else needs nothing beyond the tablet reaching this PC's LAN
+address.
 
 ## Installation
 
@@ -125,8 +132,9 @@ that filter - in that priority order if several land at once. A new
 arrival also plays a short beep (a more insistent double-tone specifically
 for SELCAL), unless sounds are turned off in Settings.
 
-The bar at the bottom sends on the **current radio frequency**. Three
-quick-reply buttons (Wilco / Roger / Standby) send that word immediately.
+The bar at the bottom sends on the **current radio frequency**. Seven
+quick-reply buttons (Wilco / Roger / Affirm / Negative / Standby / Unable /
+Say again) send that phrase immediately.
 
 ### Private conversations
 
@@ -144,8 +152,8 @@ Three ways to start or jump to a conversation:
   real VATSIM clients use. Leave the message part off (just
   `.msg CALLSIGN`) to open that conversation without sending anything yet.
 - Tap **PM** on a row in the **Traffic** tab.
-- Type a callsign into the "Nový chat" box at the top of the Private tab
-  itself and tap **Otevřít**.
+- Type a callsign into the "New chat - callsign" box at the top of the
+  Private tab itself and tap **Open**.
 
 Any of these switches you straight to that conversation, ready to type.
 
@@ -265,7 +273,9 @@ The ⚙ button opens:
 The left-hand panel (collapsible on narrow/portrait screens via the button
 below it) mirrors vPilot's own "Controllers In Range" list: Center,
 Approach/Departure, Tower, Ground, Ramp, Clearance Delivery, ATIS,
-Observers, each showing who's online and their frequency.
+Observers, each showing who's online and their frequency. A ninth
+"Other" bucket only appears if a controller's callsign doesn't fit any
+of those eight.
 
 ## Troubleshooting - plugin doesn't seem to load
 
