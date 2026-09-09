@@ -766,6 +766,31 @@
     } catch (e) { /* not fatal */ }
   }
 
+  // A distinct tone for the network connecting/disconnecting - rising for
+  // connect, falling for disconnect - different enough from the plain
+  // new-message beep and the SELCAL alert to tell apart at a glance (well,
+  // at a listen) without looking at the screen.
+  function connectionAlert(connected) {
+    if (!soundsEnabled()) return;
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var freqs = connected ? [520, 780, 1040] : [1040, 780, 520];
+      var startTime = ctx.currentTime;
+      freqs.forEach(function (f, i) {
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
+        o.type = 'triangle';
+        o.frequency.value = f;
+        g.gain.value = 0.2;
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start(startTime + i * 0.11);
+        o.stop(startTime + i * 0.11 + 0.16);
+      });
+      setTimeout(function () { ctx.close(); }, 700);
+    } catch (e) { /* not fatal */ }
+  }
+
   // ---------- private message conversations ----------
   // Conversations aren't tracked as separate state - they're derived from
   // the message log itself (anything PRIVATE/SENT_PRIVATE, grouped by its
@@ -1004,6 +1029,8 @@
 
   // ---------- status: connection + transponder ----------
   var lastStatusSignature = null;
+  var firstStatusLoad = true;
+  var lastConnectedState = null;
   function pollStatus() {
     fetch('/api/status', { cache: 'no-store' })
       .then(function (r) { return r.json(); })
@@ -1011,6 +1038,15 @@
         myCallsign = s.connected ? s.callsign : null;
         connectedSinceMs = (s.connected && s.connectedSinceUtc) ? new Date(s.connectedSinceUtc).getTime() : null;
         updateConnDuration();
+
+        // Only for an actual connect<->disconnect flip, and never on the
+        // very first poll after the page loads (that's just it catching up
+        // to whatever state already existed, not a new event to alert on).
+        if (!firstStatusLoad && lastConnectedState !== null && s.connected !== lastConnectedState) {
+          connectionAlert(s.connected);
+        }
+        lastConnectedState = s.connected;
+        firstStatusLoad = false;
 
         var signature = s.connected + '|' + s.callsign + '|' + s.rememberCallsign;
         if (signature !== lastStatusSignature) {
