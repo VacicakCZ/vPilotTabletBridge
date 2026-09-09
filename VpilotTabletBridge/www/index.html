@@ -147,7 +147,6 @@
   .msg.SENT_RADIO .tag, .msg.SENT_PRIVATE .tag { color: var(--sent); }
   .msg.METAR .tag, .msg.ATIS .tag { color: var(--weather); }
   .msg .text { font-size: 18px; line-height: 1.35; word-wrap: break-word; white-space: pre-wrap; }
-  .reply-link { background: none; border: none; color: var(--private); font-size: 12px; padding: 0; cursor: pointer; text-decoration: underline; }
   @keyframes flash { 0% { background: var(--row-flash); } 100% { background: var(--row); } }
   #empty { color: var(--muted); text-align: center; padding: 40px 0; font-size: 14px; }
 
@@ -162,12 +161,7 @@
     padding: 8px 12px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }
   .reply-mode { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; color: var(--muted); }
-  .reply-mode .chip {
-    background: #1b2430; border: 1px solid #2a3644; border-radius: 14px; padding: 3px 10px;
-    color: var(--text); font: inherit; cursor: pointer;
-  }
-  .reply-mode .chip.private { border-color: var(--private); color: var(--private); }
-  .reply-mode button.clear { background: none; border: none; color: var(--muted); font-size: 15px; cursor: pointer; padding: 0 4px; }
+  .msg-cmd-hint { font-size: 11px; }
   .reply-row { display: flex; gap: 8px; }
   .reply-row input {
     flex: 1; background: #0e141b; border: 1px solid #2a3644; color: var(--text);
@@ -189,6 +183,26 @@
   .traffic-row .callsign { font-weight: 700; font-size: 15px; }
   .traffic-row .details { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .tbtn.small { padding: 5px 10px; font-size: 12px; }
+
+  .pm-new-row { display: flex; gap: 8px; padding: 10px 12px 0; }
+  .pm-new-row input {
+    flex: 1; background: #0e141b; border: 1px solid #2a3644; color: var(--text);
+    border-radius: 8px; padding: 8px 10px; font-size: 14px;
+  }
+  .pm-conversations { flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px; }
+  .pm-chip {
+    flex: none; display: flex; align-items: center; gap: 6px; background: #1b2430;
+    border: 1px solid #2a3644; border-radius: 16px; padding: 6px 14px; font-size: 13px;
+    color: var(--text); cursor: pointer; white-space: nowrap;
+  }
+  .pm-chip.active { background: #2a3644; border-color: var(--private); color: var(--private); }
+  .pm-chip .unread-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--selcal); flex: none; }
+  .pm-msg { max-width: 80%; margin-bottom: 8px; }
+  .pm-msg.out { margin-left: auto; }
+  .pm-msg .bubble { background: var(--row); border-radius: 12px; padding: 8px 12px; font-size: 16px; line-height: 1.35; word-wrap: break-word; }
+  .pm-msg.out .bubble { background: #163a24; }
+  .pm-msg .pm-time { font-size: 11px; color: var(--muted); margin-top: 2px; padding: 0 4px; }
+  .pm-msg.out .pm-time { text-align: right; }
 
   .toast {
     position: fixed; top: 54px; left: 50%; transform: translateX(-50%);
@@ -283,6 +297,7 @@
     <section class="main-panel">
       <div class="tabs">
         <button class="active" data-tab="messages" data-i18n="tabMessages">Zprávy</button>
+        <button data-tab="private" data-i18n="tabPrivate">Private</button>
         <button data-tab="traffic" data-i18n="tabTraffic">Provoz</button>
         <button data-tab="notes" data-i18n="tabNotes">Poznámky</button>
       </div>
@@ -291,7 +306,6 @@
         <div class="filters" id="filters">
           <button data-type="ALL" class="active" data-i18n="filterAll">Vše</button>
           <button data-type="RADIO">Radio</button>
-          <button data-type="PRIVATE">Private</button>
           <button data-type="SELCAL">SELCAL</button>
           <button data-type="SYSTEM" data-i18n="filterSystem">Systém</button>
           <button data-type="WEATHER">METAR/ATIS</button>
@@ -307,13 +321,29 @@
             <button class="qr-btn" data-phrase="Standby">Standby</button>
           </div>
           <div class="reply-mode">
-            <span data-i18n="sendingLabel">Odesílám:</span>
-            <button class="chip" id="replyModeChip" data-i18n-title="replyChipTitle" title="Klepnutím zadáte komu poslat private message" data-i18n="radioModeChip">Rádio (aktuální frekvence)</button>
-            <button class="clear" id="btnClearReply" data-i18n-title="clearReplyTitle" title="Zpět na rádio" style="display:none">✕</button>
+            <span class="msg-cmd-hint" data-i18n="msgCmdHint">Tip: napište .msg VOLAČKA zpráva pro private zprávu</span>
           </div>
           <div class="reply-row">
             <input type="text" id="replyInput" data-i18n-placeholder="replyPlaceholder" placeholder="Napište zprávu…" autocapitalize="sentences">
             <button class="tbtn primary" id="btnSend" data-i18n="sendBtn">Odeslat</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tabPrivate" hidden>
+        <div class="pm-new-row">
+          <input type="text" id="pmNewCallsign" data-i18n-placeholder="pmNewPlaceholder" placeholder="Nový chat - volačka" autocapitalize="characters">
+          <button class="tbtn small" id="btnPmNew" data-i18n="pmOpenBtn">Otevřít</button>
+        </div>
+        <div class="pm-conversations" id="pmConversations"></div>
+        <div class="list-scroll" id="pmListScroll">
+          <div id="pmList"></div>
+          <div id="pmEmpty" style="display:none" data-i18n="pmEmpty">Zatím žádné soukromé konverzace. Otevřete novou nahoře, nebo napište .msg VOLAČKA text do hlavního pole ve Zprávách.</div>
+        </div>
+        <div class="replybar" id="pmReplyBar" style="display:none">
+          <div class="reply-row">
+            <input type="text" id="pmReplyInput" data-i18n-placeholder="replyPlaceholder" placeholder="Napište zprávu…" autocapitalize="sentences">
+            <button class="tbtn primary" id="btnPmSend" data-i18n="sendBtn">Odeslat</button>
           </div>
         </div>
       </div>
@@ -368,22 +398,20 @@
       soundsLabel: 'Zvuky u nových zpráv',
       langLabel: 'Jazyk',
       on: 'Zapnuto', off: 'Vypnuto',
-      tabMessages: 'Zprávy', tabNotes: 'Poznámky', tabTraffic: 'Provoz',
+      tabMessages: 'Zprávy', tabNotes: 'Poznámky', tabTraffic: 'Provoz', tabPrivate: 'Private',
       trafficHint: 'Provoz, který právě modeluje vPilot. Skutečná vzdálenost od vás bohužel není k dispozici - vPilot ji pluginům nedává.',
       trafficEmpty: 'Žádný okolní provoz.',
       filterAll: 'Vše', filterSystem: 'Systém',
       emptyMessages: 'Zatím žádné zprávy.',
-      sendingLabel: 'Odesílám:',
-      radioModeChip: 'Rádio (aktuální frekvence)',
-      replyChipTitle: 'Klepnutím zadáte komu poslat private message',
-      clearReplyTitle: 'Zpět na rádio',
+      msgCmdHint: 'Tip: napište .msg VOLAČKA zpráva pro private zprávu',
       replyPlaceholder: 'Napište zprávu…',
       sendBtn: 'Odeslat',
       notesPlaceholder: 'Poznámky uložené jen v tomto tabletu (lokálně v prohlížeči)…',
-      replyLink: 'Odpovědět',
+      pmNewPlaceholder: 'Nový chat - volačka',
+      pmOpenBtn: 'Otevřít',
+      pmEmpty: 'Zatím žádné soukromé konverzace. Otevřete novou nahoře, nebo napište .msg VOLAČKA text do hlavního pole ve Zprávách.',
       actionFailed: 'Akce selhala.', serverNotResponding: 'Server neodpovídá.',
       confirmDisconnect: 'Odpojit od sítě VATSIM?',
-      promptPrivateTo: 'Poslat private message komu? (volací znak)',
       lastUsedAircraft: 'Naposledy použité'
     },
     en: {
@@ -402,22 +430,20 @@
       soundsLabel: 'Sounds for new messages',
       langLabel: 'Language',
       on: 'On', off: 'Off',
-      tabMessages: 'Messages', tabNotes: 'Notes', tabTraffic: 'Traffic',
+      tabMessages: 'Messages', tabNotes: 'Notes', tabTraffic: 'Traffic', tabPrivate: 'Private',
       trafficHint: 'Traffic currently modeled by vPilot. Real distance from you isn\'t available - vPilot doesn\'t give plugins that.',
       trafficEmpty: 'No nearby traffic.',
       filterAll: 'All', filterSystem: 'System',
       emptyMessages: 'No messages yet.',
-      sendingLabel: 'Sending:',
-      radioModeChip: 'Radio (current frequency)',
-      replyChipTitle: 'Tap to choose who to send a private message to',
-      clearReplyTitle: 'Back to radio',
+      msgCmdHint: 'Tip: type .msg CALLSIGN message to send a private message',
       replyPlaceholder: 'Type a message…',
       sendBtn: 'Send',
       notesPlaceholder: 'Notes saved only on this tablet (locally in the browser)…',
-      replyLink: 'Reply',
+      pmNewPlaceholder: 'New chat - callsign',
+      pmOpenBtn: 'Open',
+      pmEmpty: 'No private conversations yet. Open one above, or type .msg CALLSIGN text into the main Messages box.',
       actionFailed: 'Action failed.', serverNotResponding: 'Server not responding.',
       confirmDisconnect: 'Disconnect from the VATSIM network?',
-      promptPrivateTo: 'Send a private message to whom? (callsign)',
       lastUsedAircraft: 'Last used'
     }
   };
@@ -439,7 +465,6 @@
     document.getElementById('btnLangEn').className = 'tbtn' + (currentLang === 'en' ? ' on' : '');
 
     // A few dynamic bits aren't plain data-i18n text and need refreshing too.
-    if (!replyTarget) document.getElementById('replyModeChip').textContent = t('radioModeChip');
     refreshSoundsToggle();
     lastStatusSignature = null; // forces pollStatus to redraw connect/disconnect + remember-callsign text now, not in up to 2s
     pollStatus();
@@ -599,8 +624,13 @@
   try { lastMaxId = parseInt(sessionStorage.getItem('tabletbridge-lastmax'), 10) || 0; } catch (e) { /* ignore */ }
   var firstLoad = true;
   var allMessages = [];
+  var rawMessages = []; // same data as allMessages but oldest-first, for the PM thread view
 
-  var replyTarget = null; // null = radio, otherwise a callsign string
+  // ---------- private message conversations (per-callsign, like a real VATSIM client) ----------
+  var pmActivePeer = null;
+  var pmUnread = {};      // peer (uppercase) -> true if it has a message not yet seen
+  var pmManualOpen = {};  // peer (uppercase) -> true if opened via "new chat" / .msg with no messages yet
+
   var connectFormPrefilled = false;
   var rememberBtnDirty = false;
   var myCallsign = null; // kept in sync from pollStatus, used to spot radio calls naming us
@@ -640,7 +670,7 @@
   }
 
   // ---------- tabs ----------
-  var TAB_IDS = { messages: 'tabMessages', traffic: 'tabTraffic', notes: 'tabNotes' };
+  var TAB_IDS = { messages: 'tabMessages', private: 'tabPrivate', traffic: 'tabTraffic', notes: 'tabNotes' };
   function activateTab(name) {
     document.querySelectorAll('.tabs button').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-tab') === name);
@@ -730,33 +760,121 @@
     } catch (e) { /* not fatal */ }
   }
 
-  function setReplyTarget(callsign) {
-    replyTarget = callsign;
-    var chip = document.getElementById('replyModeChip');
-    var clearBtn = document.getElementById('btnClearReply');
-    if (callsign) {
-      chip.textContent = 'Private → ' + callsign;
-      chip.className = 'chip private';
-      clearBtn.style.display = '';
-    } else {
-      chip.textContent = t('radioModeChip');
-      chip.className = 'chip';
-      clearBtn.style.display = 'none';
-    }
-    document.getElementById('replyInput').focus();
+  // ---------- private message conversations ----------
+  // Conversations aren't tracked as separate state - they're derived from
+  // the message log itself (anything PRIVATE/SENT_PRIVATE, grouped by its
+  // "peer" field) every time it's rendered, plus pmManualOpen for chats
+  // opened before any message has actually gone through yet. That keeps
+  // this in sync with reality for free instead of needing its own storage.
+  function derivePmPeers() {
+    var lastId = {};
+    rawMessages.forEach(function (m) {
+      if ((m.type === 'PRIVATE' || m.type === 'SENT_PRIVATE') && m.peer) {
+        var p = m.peer.toUpperCase();
+        lastId[p] = m.id;
+      }
+    });
+    Object.keys(pmManualOpen).forEach(function (p) { if (!(p in lastId)) lastId[p] = 0; });
+    return Object.keys(lastId).sort(function (a, b) { return lastId[b] - lastId[a]; }); // most recent activity first
   }
-  document.getElementById('btnClearReply').addEventListener('click', function () { setReplyTarget(null); });
 
-  document.getElementById('replyModeChip').addEventListener('click', function () {
-    var entered = prompt(t('promptPrivateTo'), replyTarget || '');
-    if (entered === null) return; // cancelled
-    entered = entered.trim().toUpperCase();
-    setReplyTarget(entered.length ? entered : null);
+  function renderPmConversations() {
+    var peers = derivePmPeers();
+    if (!pmActivePeer && peers.length) pmActivePeer = peers[0];
+
+    var container = document.getElementById('pmConversations');
+    container.innerHTML = '';
+    peers.forEach(function (p) {
+      var chip = document.createElement('button');
+      chip.className = 'pm-chip' + (p === pmActivePeer ? ' active' : '');
+      var label = document.createElement('span');
+      label.textContent = p;
+      chip.appendChild(label);
+      if (pmUnread[p] && p !== pmActivePeer) {
+        var dot = document.createElement('span');
+        dot.className = 'unread-dot';
+        chip.appendChild(dot);
+      }
+      chip.addEventListener('click', function () {
+        pmActivePeer = p;
+        pmUnread[p] = false;
+        renderPmConversations();
+        renderPmMessages();
+      });
+      container.appendChild(chip);
+    });
+
+    document.getElementById('pmEmpty').style.display = peers.length === 0 ? 'block' : 'none';
+    document.getElementById('pmReplyBar').style.display = peers.length === 0 ? 'none' : 'flex';
+  }
+
+  function renderPmMessages() {
+    var listEl = document.getElementById('pmList');
+    listEl.innerHTML = '';
+    if (!pmActivePeer) return;
+
+    rawMessages.filter(function (m) {
+      return (m.type === 'PRIVATE' || m.type === 'SENT_PRIVATE') && m.peer && m.peer.toUpperCase() === pmActivePeer;
+    }).forEach(function (m) {
+      var out = m.type === 'SENT_PRIVATE';
+      var wrap = document.createElement('div');
+      wrap.className = 'pm-msg' + (out ? ' out' : '');
+
+      var bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = m.text;
+
+      var time = document.createElement('div');
+      time.className = 'pm-time';
+      time.textContent = m.time;
+
+      wrap.appendChild(bubble);
+      wrap.appendChild(time);
+      listEl.appendChild(wrap);
+    });
+
+    var scrollEl = document.getElementById('pmListScroll');
+    scrollEl.scrollTop = scrollEl.scrollHeight;
+  }
+
+  function openPmConversation(peer) {
+    peer = (peer || '').trim().toUpperCase();
+    if (!peer) return;
+    pmManualOpen[peer] = true;
+    pmActivePeer = peer;
+    pmUnread[peer] = false;
+    activateTab('private');
+    renderPmConversations();
+    renderPmMessages();
+    setTimeout(function () { document.getElementById('pmReplyInput').focus(); }, 50);
+  }
+
+  function sendPmReply() {
+    var input = document.getElementById('pmReplyInput');
+    var text = input.value.trim();
+    if (!text || !pmActivePeer) return;
+    postForm('/api/send', { mode: 'private', to: pmActivePeer, message: text });
+    input.value = '';
+  }
+  document.getElementById('btnPmSend').addEventListener('click', sendPmReply);
+  document.getElementById('pmReplyInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendPmReply(); });
+
+  document.getElementById('btnPmNew').addEventListener('click', function () {
+    var input = document.getElementById('pmNewCallsign');
+    if (!input.value.trim()) return;
+    openPmConversation(input.value);
+    input.value = '';
+  });
+  document.getElementById('pmNewCallsign').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('btnPmNew').click();
   });
 
-  // Some filter buttons cover more than one underlying message type.
+  // Some filter buttons cover more than one underlying message type. Private
+  // messages never show here at all now - they live entirely in their own
+  // Private tab/conversation threads instead.
   var FILTER_GROUPS = { WEATHER: ['METAR', 'ATIS'] };
   function matchesFilter(m) {
+    if (m.type === 'PRIVATE' || m.type === 'SENT_PRIVATE') return false;
     if (activeFilter === 'ALL') return true;
     var group = FILTER_GROUPS[activeFilter];
     return group ? group.indexOf(m.type) !== -1 : m.type === activeFilter;
@@ -792,14 +910,6 @@
       meta.appendChild(from);
       meta.appendChild(time);
 
-      if (m.type === 'PRIVATE') {
-        var replyBtn = document.createElement('button');
-        replyBtn.className = 'reply-link';
-        replyBtn.textContent = t('replyLink');
-        (function (sender) { replyBtn.addEventListener('click', function () { setReplyTarget(sender); }); })(m.from);
-        meta.appendChild(replyBtn);
-      }
-
       var text = document.createElement('div');
       text.className = 'text';
       text.textContent = m.text;
@@ -821,12 +931,12 @@
         var hasNewSelcal = false;
         var hasChanged = data.length !== allMessages.length;
 
-        // Auto-switch the active filter to whatever the most attention-
-        // worthy new message is, so it's on screen without having to tap a
-        // filter chip yourself. Priority (highest wins if several land in
-        // the same poll): SELCAL > private message > radio call naming your
-        // own callsign > a METAR/ATIS result coming in.
-        var switchTarget = null, switchPriority = -1;
+        // Auto-switch to whatever the most attention-worthy new arrival is,
+        // so it's on screen without having to go looking for it. Priority
+        // (highest wins if several land in the same poll): SELCAL > private
+        // message (jumps to its own conversation in the Private tab) >
+        // radio call naming your own callsign > a METAR/ATIS result coming in.
+        var switchTarget = null, switchPriority = -1, switchPeer = null;
         function considerSwitch(target, priority) {
           if (priority > switchPriority) { switchTarget = target; switchPriority = priority; }
         }
@@ -837,9 +947,15 @@
             if (m.type !== 'SENT_RADIO' && m.type !== 'SENT_PRIVATE') hasNewFromOthers = true;
             if (m.type === 'SELCAL') hasNewSelcal = true;
 
+            if (m.type === 'PRIVATE' && m.peer) {
+              var peerUp = m.peer.toUpperCase();
+              var viewingThisPeer = pmActivePeer === peerUp && !document.getElementById('tabPrivate').hidden;
+              if (!viewingThisPeer) pmUnread[peerUp] = true;
+            }
+
             if (!firstLoad) {
               if (m.type === 'SELCAL') considerSwitch('SELCAL', 3);
-              else if (m.type === 'PRIVATE') considerSwitch('PRIVATE', 2);
+              else if (m.type === 'PRIVATE' && m.peer) { considerSwitch('PRIVATE', 2); switchPeer = m.peer.toUpperCase(); }
               else if (m.type === 'RADIO' && myCallsign && m.text.toUpperCase().indexOf(myCallsign) !== -1) considerSwitch('RADIO', 1);
               else if (m.type === 'METAR' || m.type === 'ATIS') considerSwitch('WEATHER', 0);
             }
@@ -847,14 +963,26 @@
           if (m.id > newMax) newMax = m.id;
         });
 
+        rawMessages = data;
         allMessages = data.slice().reverse();
-        if (switchTarget) activateFilter(switchTarget);
+
+        if (switchTarget === 'PRIVATE' && switchPeer) {
+          openPmConversation(switchPeer);
+        } else if (switchTarget) {
+          activateTab('messages');
+          activateFilter(switchTarget);
+        }
+
         // Rebuilding the whole list on every poll - even when nothing came
         // in - is what was causing the messages to visibly flicker every
         // 2 seconds on the tablet. Only re-render when something actually
         // changed. render() itself (above) still reads the pre-update
         // lastMaxId to know which of these are the genuinely new ones.
-        if (hasChanged || firstLoad) render();
+        if (hasChanged || firstLoad) {
+          render();
+          renderPmConversations();
+          renderPmMessages();
+        }
 
         if (!firstLoad) {
           if (hasNewSelcal) selcalAlert();
@@ -1004,11 +1132,7 @@
       pmBtn.className = 'tbtn small';
       pmBtn.textContent = 'PM';
       (function (callsign) {
-        pmBtn.addEventListener('click', function () {
-          setReplyTarget(callsign);
-          activateTab('messages');
-          document.getElementById('replyInput').focus();
-        });
+        pmBtn.addEventListener('click', function () { openPmConversation(callsign); });
       })(a.callsign);
 
       row.appendChild(info);
@@ -1124,13 +1248,28 @@
   });
 
   // ---------- reply bar ----------
+  // Matches the real VATSIM convention: ".msg CALLSIGN text" (or ".chat ...")
+  // starts/continues a private conversation from the main box, without
+  // needing to switch to the Private tab first. With no text after the
+  // callsign it just opens that conversation, ready to type into.
+  var MSG_COMMAND = /^\.(msg|chat)\s+(\S+)(?:\s+([\s\S]+))?$/i;
+
   function sendReply() {
     var input = document.getElementById('replyInput');
     var text = input.value.trim();
     if (!text) return;
 
-    var data = replyTarget ? { mode: 'private', to: replyTarget, message: text } : { mode: 'radio', message: text };
-    postForm('/api/send', data);
+    var cmd = text.match(MSG_COMMAND);
+    if (cmd) {
+      var peer = cmd[2];
+      var msg = cmd[3] ? cmd[3].trim() : '';
+      input.value = '';
+      if (msg) postForm('/api/send', { mode: 'private', to: peer, message: msg });
+      openPmConversation(peer);
+      return;
+    }
+
+    postForm('/api/send', { mode: 'radio', message: text });
     input.value = '';
   }
   document.getElementById('btnSend').addEventListener('click', sendReply);

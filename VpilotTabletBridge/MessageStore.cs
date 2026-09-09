@@ -12,8 +12,9 @@ namespace VpilotTabletBridge
     {
         public long Id;
         public DateTime TimeUtc;
-        public string Type;   // RADIO, PRIVATE, BROADCAST, SELCAL, SYSTEM
+        public string Type;   // RADIO, PRIVATE, SENT_PRIVATE, BROADCAST, SELCAL, SYSTEM, METAR, ATIS, SENT_RADIO
         public string From;
+        public string Peer;   // the other party of a PRIVATE/SENT_PRIVATE conversation; "" for every other type
         public string Text;
     }
 
@@ -30,7 +31,7 @@ namespace VpilotTabletBridge
         private readonly LinkedList<MessageEntry> _entries = new LinkedList<MessageEntry>();
         private long _nextId = 1;
 
-        public void Add(string type, string from, string text)
+        public void Add(string type, string from, string text, string peer = null)
         {
             lock (_lock)
             {
@@ -40,6 +41,7 @@ namespace VpilotTabletBridge
                     TimeUtc = DateTime.UtcNow,
                     Type = type ?? "SYSTEM",
                     From = from ?? "",
+                    Peer = peer ?? "",
                     Text = text ?? ""
                 });
 
@@ -68,6 +70,7 @@ namespace VpilotTabletBridge
                     sb.Append("\"time\":\"").Append(m.TimeUtc.ToLocalTime().ToString("HH:mm:ss")).Append("\",");
                     sb.Append("\"type\":").Append(Json.Str(m.Type)).Append(',');
                     sb.Append("\"from\":").Append(Json.Str(m.From)).Append(',');
+                    sb.Append("\"peer\":").Append(Json.Str(m.Peer)).Append(',');
                     sb.Append("\"text\":").Append(Json.Str(m.Text));
                     sb.Append('}');
                 }

@@ -8,31 +8,24 @@ is out of reach.
 ## How it works
 
 The tablet page mirrors vPilot's own window layout (toolbar, Controllers In
-Range on the left, Messages/Notes tabs on the right) rather than being just
-a message log:
+Range on the left, tabbed content on the right) rather than being just a
+message log. Full feature-by-feature detail is in "User guide" below; at
+the architecture level:
 
 - The plugin implements vPilot's `IPlugin` interface and subscribes to the
-  `IBroker` events for messages (`RadioMessageReceived`, `PrivateMessageReceived`,
-  `BroadcastMessageReceived`, `SelcalAlertReceived`), connection state
-  (`NetworkConnected`, `NetworkDisconnected`) and ATC in range
-  (`ControllerAdded`, `ControllerDeleted`, `ControllerFrequencyChanged`).
+  relevant `IBroker` events: messages (`RadioMessageReceived`,
+  `PrivateMessageReceived`, `BroadcastMessageReceived`, `SelcalAlertReceived`,
+  `MetarReceived`, `AtisReceived`), connection state (`NetworkConnected`,
+  `NetworkDisconnected`), ATC in range (`ControllerAdded`, `ControllerDeleted`,
+  `ControllerFrequencyChanged`), and nearby traffic (`AircraftAdded`,
+  `AircraftUpdated`, `AircraftDeleted`).
 - Every message is appended to an in-memory log (last 300 entries).
 - A small HTTP server, built directly on `TcpListener` (not
   `System.Net.HttpListener`, which needs admin rights or a `netsh` URL
   reservation to bind anything but `localhost`), serves the page and a JSON
-  API: `GET /api/messages`, `GET /api/status` (connection state), `GET /api/controllers`
-  (ATC in range), and `POST /api/connect`, `/api/disconnect`, `/api/send`,
-  `/api/metar`, `/api/atis`, `/api/settings` for the actions the tablet can
-  trigger.
-- From the tablet you can: connect/disconnect from the network (with the
-  callsign/aircraft type/SELCAL remembered between sessions), see who's
-  in range grouped exactly like vPilot's own Center/Approach-Departure/
-  Tower/Ground/Ramp/Clearance Delivery/ATIS/Observers categories, read and
-  filter messages, reply - either on the current radio frequency or, by
-  tapping "Odpovědět" on a private message or the reply chip itself, to a
-  specific callsign - and request METAR/ATIS (`RequestMetar`/`RequestAtis`,
-  ☁ button in the toolbar), with the result appearing in the message log.
-  A "Notes" tab gives a scratchpad saved locally in the tablet's browser.
+  API: `GET /api/messages`, `/api/status`, `/api/controllers`, `/api/traffic`,
+  and `POST /api/connect`, `/api/disconnect`, `/api/send`, `/api/metar`,
+  `/api/atis`, `/api/settings` for the actions the tablet can trigger.
 - The page beeps on a new message, with a distinct, more insistent tone
   specifically for SELCAL alerts; sounds can be turned off entirely from
   the settings (⚙) panel.
@@ -94,30 +87,42 @@ callsign plus how long you've been connected, updated every 30 seconds.
 
 ### Reading messages
 
-The **Messages** tab lists everything: radio traffic, private messages,
-broadcasts, SELCAL alerts, METAR/ATIS results, and your own connect/
-disconnect notices - color-coded by type. The filter chips above the list
-(All / Radio / Private / SELCAL / System / METAR/ATIS) narrow it down. The
-active filter switches itself automatically to whatever the most relevant
-new arrival is - SELCAL first, then a private message, then a radio call
-that mentions your own callsign, then a METAR/ATIS result - so you don't
-have to go looking for it. A new arrival also plays a short beep (a more
-insistent double-tone specifically for SELCAL), unless sounds are turned
-off in Settings.
+The **Messages** tab lists radio traffic, broadcasts, SELCAL alerts,
+METAR/ATIS results, and your own connect/disconnect notices - color-coded
+by type. Private messages don't appear here - see "Private conversations"
+below. The filter chips above the list (All / Radio / SELCAL / System /
+METAR/ATIS) narrow it down. New arrivals switch things automatically so
+you don't have to go looking for them: SELCAL takes you to Messages with
+the SELCAL filter, a private message jumps straight to its own
+conversation in the Private tab, a radio call that mentions your own
+callsign switches to the Radio filter, and a METAR/ATIS result switches to
+that filter - in that priority order if several land at once. A new
+arrival also plays a short beep (a more insistent double-tone specifically
+for SELCAL), unless sounds are turned off in Settings.
 
-### Replying
+The bar at the bottom sends on the **current radio frequency**. Three
+quick-reply buttons (Wilco / Roger / Standby) send that word immediately.
 
-The bar at the bottom of Messages sends on the **current radio frequency**
-by default - shown as the "Rádio" chip. Three quick-reply buttons (Wilco /
-Roger / Standby) send that word immediately, respecting whatever mode
-you're currently in.
+### Private conversations
 
-To send a **private message**: either tap "Odpovědět" under an incoming
-private message (targets that sender automatically), tap a callsign in the
-Traffic tab's PM button, or tap the mode chip itself and type in any
-callsign directly - useful for starting a conversation with someone who
-hasn't messaged you first. Tap the ✕ next to the chip to go back to radio
-mode.
+Private messages get their own **Private** tab, one conversation per
+callsign - the same idea as any VATSIM client, and deliberately not just
+one giant shared list, so it doesn't turn into a mess once you're juggling
+several chats at once. A strip of conversation chips across the top lets
+you switch between them (scrolls sideways if there are more than fit; a
+chip gets a small dot when it has a message you haven't seen yet), each
+with its own thread and its own reply box underneath.
+
+Three ways to start or jump to a conversation:
+- Type `.msg CALLSIGN your message` (or `.chat CALLSIGN ...`) into the
+  **Messages** tab's own reply box - matches the `.msg`/`.chat` command
+  real VATSIM clients use. Leave the message part off (just
+  `.msg CALLSIGN`) to open that conversation without sending anything yet.
+- Tap **PM** on a row in the **Traffic** tab.
+- Type a callsign into the "Nový chat" box at the top of the Private tab
+  itself and tap **Otevřít**.
+
+Any of these switches you straight to that conversation, ready to type.
 
 ### Weather - METAR and ATIS
 
@@ -133,8 +138,8 @@ callsign typed in full (e.g. `LKPR_A_ATIS`) if you already know it.
 
 The **Traffic** tab lists nearby aircraft as vPilot currently sees them -
 callsign, type, altitude, heading, speed. There's a **PM** button on each
-row that jumps straight to Messages with a private reply already addressed
-to that callsign. Note: this list isn't sorted by actual distance from
+row that jumps straight to that callsign's conversation in the Private
+tab. Note: this list isn't sorted by actual distance from
 you - vPilot's plugin API doesn't expose your own aircraft's position, so
 there's no way to compute a real distance or bearing here. It's simply
 whatever vPilot itself is currently modeling as traffic, which vPilot

@@ -107,7 +107,7 @@ namespace VpilotTabletBridge
                 if (to.Length == 0) throw new ArgumentException("Chybí adresát private zprávy.");
 
                 _broker.SendPrivateMessage(to, message);
-                _store.Add("SENT_PRIVATE", "Vy → " + to, message);
+                _store.Add("SENT_PRIVATE", "Vy", message, to);
             }
             else
             {

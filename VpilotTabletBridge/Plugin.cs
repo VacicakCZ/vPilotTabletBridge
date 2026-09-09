@@ -199,7 +199,7 @@ namespace VpilotTabletBridge
 
         private void OnPrivateMessageReceived(object sender, PrivateMessageReceivedEventArgs e)
         {
-            _store.Add("PRIVATE", e.From, e.Message);
+            _store.Add("PRIVATE", e.From, e.Message, e.From);
         }
 
         private void OnBroadcastMessageReceived(object sender, BroadcastMessageReceivedEventArgs e)
