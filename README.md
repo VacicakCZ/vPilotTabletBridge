@@ -53,17 +53,23 @@ just the plugin DLL sitting in vPilot's `Plugins` folder.
    copy "bin\Release\VpilotTabletBridge.dll" "$env:LocalAppData\vPilot\Plugins\"
    ```
    (vPilot must be closed while you do this - it locks the file while running.)
-3. Start vPilot. A Windows notification balloon from the system tray shows
-   the address(es) to use - look near the clock; if Windows tucked the new
-   tray icon into the overflow (the little "^" next to the clock), the
-   notification should still have appeared regardless. The same addresses
-   are also written to `%LocalAppData%\vPilot\Plugins\TabletBridge-debug.log`
-   next to the DLL if you'd rather check there, or missed the notification.
-   (They're also sent via `PostDebugMessage`, both immediately and again
-   ~10s later - that only reaches vPilot's separate ".debug" window, and
-   only for messages posted *after* that window is opened, so the resend
-   is there to actually land if you open ".debug" right after seeing the
-   tray notification. Don't rely on the immediate one alone for this.)
+3. Start vPilot, then type `.debug` into it (in the main text box, like any
+   other dot command) to open the separate "vPilot Debug Messages" window.
+   That window only shows messages posted *after* it's opened, so the
+   plugin posts the address(es) twice - immediately on startup, and again
+   ~10s later - to give this a real chance of landing even if you type
+   `.debug` a few seconds after vPilot starts rather than before. The same
+   addresses are always written to
+   `%LocalAppData%\vPilot\Plugins\TabletBridge-debug.log` next to the DLL
+   too, if you'd rather check there instead.
+
+   (There is no way for a plugin to write into vPilot's normal Messages
+   panel directly - only into that separate debug window, or by actually
+   transmitting a real radio/private message over the network, which
+   would obviously be inappropriate for a local startup notice. A Windows
+   tray notification was tried here too at one point but was dropped -
+   unwanted background notifications aren't worth it for this.)
+
    If none of that shows anything at all, see "Troubleshooting" below.
 4. On the tablet - **while it's on the same Wi-Fi network as the PC** -
    open that address in a browser. Add it to the home screen for a quick
