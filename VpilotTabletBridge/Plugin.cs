@@ -31,6 +31,7 @@ namespace VpilotTabletBridge
         private readonly Controllers _controllers = new Controllers();
         private readonly Traffic _traffic = new Traffic();
         private NotifyIcon _trayIcon;
+        private Timer _delayedDebugTimer;
 
         public void Initialize(IBroker broker)
         {
@@ -77,17 +78,22 @@ namespace VpilotTabletBridge
             // PostDebugMessage doesn't actually reach vPilot's normal Messages
             // panel - it only goes to a separate "vPilot Debug Messages"
             // window opened with the ".debug" command, and that window only
-            // shows messages posted *after* it's opened, so anything logged
-            // here at startup is invisible unless that window happened to
-            // already be open beforehand. Kept below anyway (harmless, and
-            // useful for anyone who does have it open), but the address is
-            // primarily surfaced through a Windows notification balloon
-            // instead, which shows up regardless of any of that.
-            _broker.PostDebugMessage("[Tablet Bridge] Running. Open one of these addresses on your tablet:");
-            foreach (string ip in ips)
+            // shows messages posted *after* it's opened, so logging this only
+            // once, immediately, is invisible unless that window happened to
+            // already be open beforehand. The Windows tray notification below
+            // is the primary way this is surfaced, but as a second chance for
+            // anyone who opens ".debug" right after seeing that notification,
+            // resend the same lines once more ~10s later - long enough to
+            // realistically have typed the command by then.
+            PostAddressDebugLines(ips, port);
+
+            _delayedDebugTimer = new Timer { Interval = 10000 };
+            _delayedDebugTimer.Tick += (s, e) =>
             {
-                _broker.PostDebugMessage("[Tablet Bridge]   http://" + ip + ":" + port + "/");
-            }
+                _delayedDebugTimer.Stop();
+                PostAddressDebugLines(ips, port);
+            };
+            _delayedDebugTimer.Start();
 
             ShowStartupNotification(ips, port);
 
@@ -112,6 +118,15 @@ namespace VpilotTabletBridge
             // need to see it - it's still visible in vPilot's own debug
             // console above, and in TabletBridge-debug.log, for troubleshooting.
             Log("Event subscriptions done.");
+        }
+
+        private void PostAddressDebugLines(List<string> ips, int port)
+        {
+            _broker.PostDebugMessage("[Tablet Bridge] Running. Open one of these addresses on your tablet:");
+            foreach (string ip in ips)
+            {
+                _broker.PostDebugMessage("[Tablet Bridge]   http://" + ip + ":" + port + "/");
+            }
         }
 
         /// <summary>
@@ -311,6 +326,8 @@ namespace VpilotTabletBridge
         private void OnSessionEnded(object sender, EventArgs e)
         {
             _server?.Stop();
+            _delayedDebugTimer?.Stop();
+            _delayedDebugTimer?.Dispose();
             if (_trayIcon != null)
             {
                 _trayIcon.Visible = false;
