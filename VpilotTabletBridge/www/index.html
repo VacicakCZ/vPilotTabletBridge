@@ -145,6 +145,7 @@
     background: none; border: none; font-size: 15px; line-height: 1; padding: 0 2px;
     cursor: pointer; margin-left: auto;
   }
+  .speak-btn.playing { color: var(--weather); }
   .msg .tag { font-weight: 700; letter-spacing: .04em; }
   .msg.RADIO .tag { color: var(--radio); }
   .msg.PRIVATE .tag { color: var(--private); }
@@ -423,7 +424,7 @@
       actionFailed: 'Akce selhala.', serverNotResponding: 'Server neodpovídá.',
       confirmDisconnect: 'Odpojit od sítě VATSIM?',
       lastUsedAircraft: 'Naposledy použité',
-      speakTitle: 'Přečíst nahlas'
+      speakTitle: 'Přečíst nahlas', stopTitle: 'Zastavit přehrávání'
     },
     en: {
       connect: 'Connect', disconnect: 'Disconnect', disconnected: 'Disconnected',
@@ -456,7 +457,7 @@
       actionFailed: 'Action failed.', serverNotResponding: 'Server not responding.',
       confirmDisconnect: 'Disconnect from the VATSIM network?',
       lastUsedAircraft: 'Last used',
-      speakTitle: 'Read aloud'
+      speakTitle: 'Read aloud', stopTitle: 'Stop playback'
     }
   };
 
@@ -697,6 +698,8 @@
         var phenomena = m[3].match(/.{2}/g) || [];
         phrase += phenomena.map(function (p) { return WX_PHENOMENON[p] || p; }).join(' and ');
         out.push(phrase.trim());
+      } else if ((m = tok.match(/^[A-Z]$/))) {
+        out.push(PHONETIC[m[0]] || m[0]);
       } else {
         out.push(tok);
       }
@@ -727,10 +730,6 @@
   function atisToSpeech(raw) {
     var text = raw;
 
-    text = text.replace(/\b(INFORMATION|INFO)\s+([A-Z])\b/gi, function (full, word, letter) {
-      return word + ' ' + (PHONETIC[letter.toUpperCase()] || letter);
-    });
-
     text = text.replace(/\b(RWY|RUNWAY)\s+(\d{2})(L|R|C)?\b/gi, function (full, word, digits, side) {
       var suffix = side === 'L' ? ' left' : side === 'R' ? ' right' : side === 'C' ? ' center' : '';
       return 'Runway ' + spellDigits(digits) + suffix;
@@ -742,8 +741,29 @@
       return spellDigits(dir) + ' degrees at ' + spd + ' knots' + (gust ? ', gusting ' + gust : '');
     });
 
-    text = text.replace(/\bQNH\s+(\d{4})\b/gi, function (full, digits) {
+    // Any letter standing alone (info identifier, spelled-out designator,
+    // etc.) gets read using the phonetic alphabet. This must run before the
+    // QNH/ILS/VOR-style abbreviations below, which themselves expand into
+    // sequences of single letters ("Q N H") that are meant to be read as
+    // bare letters, not phonetic words - so this pass must not see them.
+    text = text.replace(/\b[A-Z]\b/g, function (letter) {
+      return PHONETIC[letter] || letter;
+    });
+
+    // QNH is very often written glued to its value ("QNH1013") rather than
+    // "QNH 1013" - \s* covers both without a separate branch.
+    text = text.replace(/\bQNH\s*(\d{4})\b/gi, function (full, digits) {
       return 'Q N H ' + spellDigits(digits);
+    });
+
+    // Temperature/dewpoint groups, also usually glued ("T12", "TM02" for
+    // minus, "D08"). Read the value digit-by-digit like the rest of the
+    // numeric groups here, not as a whole number.
+    text = text.replace(/\bT(M?)(\d{2})\b/g, function (full, neg, digits) {
+      return 'temperature ' + (neg ? 'minus ' : '') + spellDigits(digits);
+    });
+    text = text.replace(/\bD(M?)(\d{2})\b/g, function (full, neg, digits) {
+      return 'dew point ' + (neg ? 'minus ' : '') + spellDigits(digits);
     });
 
     text = text.replace(/\b(VIS|VISIBILITY)\s+9999\b/gi, 'Visibility 10 kilometers or more');
@@ -758,14 +778,41 @@
     return text;
   }
 
-  function speakMessage(m) {
+  // Tracks whichever speak button currently shows the "stop" icon, so a new
+  // tap elsewhere can reset it (speechSynthesis.cancel() below stops it
+  // without firing a per-utterance event we could otherwise hook) and so a
+  // second tap on the same button knows to stop rather than restart.
+  var speakingBtn = null;
+
+  function resetSpeakBtn() {
+    if (speakingBtn) {
+      speakingBtn.textContent = '▶';
+      speakingBtn.classList.remove('playing');
+      speakingBtn.title = t('speakTitle');
+    }
+    speakingBtn = null;
+  }
+
+  function speakMessage(m, btn) {
     if (!CAN_SPEAK) return;
     try {
+      var wasThisBtn = speakingBtn === btn;
       window.speechSynthesis.cancel(); // don't stack multiple taps
+      resetSpeakBtn();
+      if (wasThisBtn) return; // tapping the playing message's button just stops it
+
       var spoken = m.type === 'METAR' ? metarToSpeech(m.text) : atisToSpeech(m.text);
       var utter = new SpeechSynthesisUtterance(spoken);
       utter.lang = 'en-US'; // aviation phraseology is always in English
       utter.rate = 0.5; // was near-normal speed (0.95) - way too fast to actually follow
+      utter.onend = resetSpeakBtn;
+      utter.onerror = resetSpeakBtn;
+
+      speakingBtn = btn;
+      btn.textContent = '⏹';
+      btn.classList.add('playing');
+      btn.title = t('stopTitle');
+
       window.speechSynthesis.speak(utter);
     } catch (e) { /* not fatal */ }
   }
@@ -1103,9 +1150,9 @@
       if (CAN_SPEAK && (m.type === 'METAR' || m.type === 'ATIS')) {
         var speakBtn = document.createElement('button');
         speakBtn.className = 'speak-btn';
-        speakBtn.textContent = '🔊';
+        speakBtn.textContent = '▶';
         speakBtn.title = t('speakTitle');
-        (function (msg) { speakBtn.addEventListener('click', function () { speakMessage(msg); }); })(m);
+        (function (msg, btn) { btn.addEventListener('click', function () { speakMessage(msg, btn); }); })(m, speakBtn);
         meta.appendChild(speakBtn);
       }
 
