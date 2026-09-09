@@ -717,7 +717,7 @@
     RWY: 'Runway', RWYS: 'Runways', TWY: 'Taxiway', TWYS: 'Taxiways', APCH: 'Approach',
     DEP: 'Departure', DEPS: 'Departures', ARR: 'Arrival', ARRS: 'Arrivals', TRANS: 'Transition',
     TRL: 'Transition Level', TA: 'Transition Altitude', VIS: 'Visibility', TEMP: 'Temperature',
-    DEWPT: 'Dewpoint', QNH: 'Q N H', WX: 'Weather', CLD: 'Cloud', INFO: 'Information',
+    DEWPT: 'Dewpoint', DP: 'Dew Point', QNH: 'Q N H', WX: 'Weather', CLD: 'Cloud', INFO: 'Information',
     AVBL: 'Available', EXPCT: 'Expect', EXP: 'Expect', MAINT: 'Maintenance', WEF: 'With effect from',
     BTN: 'Between', CTC: 'Contact', FREQ: 'Frequency', ILS: 'I L S', VOR: 'V O R', NDB: 'N D B',
     DME: 'D M E', MSL: 'Mean sea level', AGL: 'Above ground level', KT: 'knots', KTS: 'knots',
@@ -735,10 +735,23 @@
       return 'Runway ' + spellDigits(digits) + suffix;
     });
 
-    // ATIS wind is usually written "270/15KT" (slash) rather than METAR's
-    // concatenated "27015KT" - handle it separately here.
+    // ATIS wind is sometimes written "270/15KT" (slash)...
     text = text.replace(/\b(\d{3})\/(\d{2,3})(?:G(\d{2,3}))?(?:KT|KTS)?\b/g, function (full, dir, spd, gust) {
       return spellDigits(dir) + ' degrees at ' + spd + ' knots' + (gust ? ', gusting ' + gust : '');
+    });
+    // ...but real ATIS generators (e.g. vATIS) commonly emit the exact same
+    // concatenated METAR-style group instead ("26012KT", "18015G20KT",
+    // "VRB05KT") - without this, that whole group was being read back
+    // letter-by-letter instead of as wind. No "wind" prefix here (unlike
+    // metarToSpeech's equivalent) - the raw ATIS text already has a literal
+    // "WIND" label right before this group, so adding one would double it up.
+    text = text.replace(/\b(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT\b/g, function (full, dir, spd, gust) {
+      var dirText = dir === 'VRB' ? 'variable' : spellDigits(dir) + ' degrees';
+      return dirText + ' at ' + spd + ' knots' + (gust ? ', gusting ' + gust : '');
+    });
+    // Variable wind direction range, e.g. "240V270".
+    text = text.replace(/\b(\d{3})V(\d{3})\b/g, function (full, from, to) {
+      return 'variable between ' + spellDigits(from) + ' and ' + spellDigits(to) + ' degrees';
     });
 
     // Any letter standing alone (info identifier, spelled-out designator,
@@ -756,13 +769,21 @@
       return 'Q N H ' + spellDigits(digits);
     });
 
+    // Transition level is a flight level, so - like a runway number - it's
+    // read digit-by-digit ("Transition Level six zero"), not as "sixty".
+    text = text.replace(/\bTRL\s*(\d{1,3})\b/gi, function (full, digits) {
+      return 'Transition Level ' + spellDigits(digits);
+    });
+
     // Temperature/dewpoint groups, also usually glued ("T12", "TM02" for
-    // minus, "D08"). Read the value digit-by-digit like the rest of the
-    // numeric groups here, not as a whole number.
+    // minus, "DP08"). Dew point's abbreviation is DP, not a bare "D" (which
+    // would be ambiguous with other letter-groups). Read the value
+    // digit-by-digit like the rest of the numeric groups here, not as a
+    // whole number.
     text = text.replace(/\bT(M?)(\d{2})\b/g, function (full, neg, digits) {
       return 'temperature ' + (neg ? 'minus ' : '') + spellDigits(digits);
     });
-    text = text.replace(/\bD(M?)(\d{2})\b/g, function (full, neg, digits) {
+    text = text.replace(/\bDP(M?)(\d{2})\b/gi, function (full, neg, digits) {
       return 'dew point ' + (neg ? 'minus ' : '') + spellDigits(digits);
     });
 
