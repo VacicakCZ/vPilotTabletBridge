@@ -53,13 +53,17 @@ just the plugin DLL sitting in vPilot's `Plugins` folder.
    copy "bin\Release\VpilotTabletBridge.dll" "$env:LocalAppData\vPilot\Plugins\"
    ```
    (vPilot must be closed while you do this - it locks the file while running.)
-3. Start vPilot and check its debug/log window for a line like:
-   ```
-   [Tablet Bridge] Running. Open one of these addresses on your tablet:
-   [Tablet Bridge]   http://192.168.x.x:8686/
-   ```
-   That's the address to use in step 4. If you don't see these lines at
-   all, see "Troubleshooting" below.
+3. Start vPilot. A Windows notification balloon from the system tray shows
+   the address(es) to use - look near the clock; if Windows tucked the new
+   tray icon into the overflow (the little "^" next to the clock), the
+   notification should still have appeared regardless. The same addresses
+   are also written to `%LocalAppData%\vPilot\Plugins\TabletBridge-debug.log`
+   next to the DLL if you'd rather check there, or missed the notification.
+   (They're technically also sent via `PostDebugMessage`, but that only
+   reaches vPilot's separate ".debug" window, and only for messages posted
+   *after* that window is opened - not useful for a one-time startup notice,
+   so don't rely on it for this.)
+   If none of that shows anything at all, see "Troubleshooting" below.
 4. On the tablet - **while it's on the same Wi-Fi network as the PC** -
    open that address in a browser. Add it to the home screen for a quick
    full-screen shortcut. **On iPad, use Safari** - see the known Chrome

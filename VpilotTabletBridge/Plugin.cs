@@ -4,6 +4,8 @@ using System.IO;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Text;
+using System.Windows.Forms;
 
 using RossCarlson.Vatsim.Vpilot.Plugins;
 using RossCarlson.Vatsim.Vpilot.Plugins.Events;
@@ -28,6 +30,7 @@ namespace VpilotTabletBridge
         private readonly PluginState _state = new PluginState();
         private readonly Controllers _controllers = new Controllers();
         private readonly Traffic _traffic = new Traffic();
+        private NotifyIcon _trayIcon;
 
         public void Initialize(IBroker broker)
         {
@@ -69,11 +72,24 @@ namespace VpilotTabletBridge
                 return;
             }
 
+            List<string> ips = GetLocalIPv4Addresses();
+
+            // PostDebugMessage doesn't actually reach vPilot's normal Messages
+            // panel - it only goes to a separate "vPilot Debug Messages"
+            // window opened with the ".debug" command, and that window only
+            // shows messages posted *after* it's opened, so anything logged
+            // here at startup is invisible unless that window happened to
+            // already be open beforehand. Kept below anyway (harmless, and
+            // useful for anyone who does have it open), but the address is
+            // primarily surfaced through a Windows notification balloon
+            // instead, which shows up regardless of any of that.
             _broker.PostDebugMessage("[Tablet Bridge] Running. Open one of these addresses on your tablet:");
-            foreach (string ip in GetLocalIPv4Addresses())
+            foreach (string ip in ips)
             {
                 _broker.PostDebugMessage("[Tablet Bridge]   http://" + ip + ":" + port + "/");
             }
+
+            ShowStartupNotification(ips, port);
 
             _broker.NetworkConnected += OnNetworkConnected;
             _broker.NetworkDisconnected += OnNetworkDisconnected;
@@ -96,6 +112,46 @@ namespace VpilotTabletBridge
             // need to see it - it's still visible in vPilot's own debug
             // console above, and in TabletBridge-debug.log, for troubleshooting.
             Log("Event subscriptions done.");
+        }
+
+        /// <summary>
+        /// Pops a Windows notification balloon from the system tray with the
+        /// tablet address(es), independent of vPilot's own UI entirely - see
+        /// the comment where this is called for why PostDebugMessage alone
+        /// isn't good enough for this.
+        /// </summary>
+        private void ShowStartupNotification(List<string> ips, int port)
+        {
+            try
+            {
+                var addresses = new StringBuilder();
+                string firstUrl = null;
+                foreach (string ip in ips)
+                {
+                    string url = "http://" + ip + ":" + port + "/";
+                    if (firstUrl == null) firstUrl = url;
+                    addresses.AppendLine(url);
+                }
+
+                _trayIcon = new NotifyIcon();
+                _trayIcon.Icon = System.Drawing.SystemIcons.Information;
+                _trayIcon.Visible = true;
+
+                string text = "Tablet Bridge" + (firstUrl != null ? " - " + firstUrl : "");
+                _trayIcon.Text = text.Length > 127 ? text.Substring(0, 127) : text;
+
+                _trayIcon.BalloonTipTitle = "vPilot Tablet Bridge is running";
+                _trayIcon.BalloonTipText = "Open on your tablet:" + Environment.NewLine + addresses.ToString().TrimEnd();
+                _trayIcon.BalloonTipIcon = ToolTipIcon.Info;
+                _trayIcon.ShowBalloonTip(10000);
+
+                Log("Tray notification shown.");
+            }
+            catch (Exception ex)
+            {
+                // Never let a notification failure take the plugin down with it.
+                Log("ShowStartupNotification threw: " + ex);
+            }
         }
 
         /// <summary>
@@ -255,6 +311,11 @@ namespace VpilotTabletBridge
         private void OnSessionEnded(object sender, EventArgs e)
         {
             _server?.Stop();
+            if (_trayIcon != null)
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+            }
         }
     }
 }
