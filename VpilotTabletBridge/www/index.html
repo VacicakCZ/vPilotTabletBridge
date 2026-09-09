@@ -746,6 +746,20 @@
     var text = raw;
     var airportName = icao && AIRPORTS[icao];
 
+    // Some ATIS text also spells the bare ICAO code out in the body itself
+    // right next to the word ATIS (e.g. a "DEP ATIS EDDF" header line),
+    // separately from whatever the station's callsign resolved above -
+    // replace it there too so it doesn't get left as a raw, garbled code.
+    // Scoped tightly to right next to the literal word ATIS (rather than
+    // any four-letter word anywhere) since a handful of real airport ICAO
+    // codes collide with ordinary English words (e.g. "SAME", "LESS").
+    text = text.replace(/\b([A-Z]{4})\s+ATIS\b/g, function (full, code) {
+      return (AIRPORTS[code] || code) + ' ATIS';
+    });
+    text = text.replace(/\bATIS\s+([A-Z]{4})\b/g, function (full, code) {
+      return 'ATIS ' + (AIRPORTS[code] || code);
+    });
+
     // RWY/RUNWAY followed by one or more runway designators ("RWY 07L",
     // "RWY 07 25", "RUNWAY 07L AND 25R") - every designator after the
     // keyword gets read digit-by-digit, not just the first one.
@@ -783,18 +797,28 @@
     });
 
     // ATIS issue time. "TIME 1920" (word label) is common and, per real
-    // examples, very often has no trailing Z at all - read the digits
-    // regardless. Bare "1820Z" or day-prefixed "091820Z" (METAR-style,
-    // occasionally reused in ATIS text) are unambiguous because of the Z
-    // and are read even without a "TIME" label.
-    text = text.replace(/\bTIME\s+(\d{4})(Z)?\b/gi, function (full, digits, z) {
-      return 'Time ' + spellDigits(digits) + (z ? ' Zulu' : '');
+    // examples, very often has no trailing Z at all; a bare six-digit
+    // day+hour+minute group with neither a "TIME" label nor a Z also shows
+    // up. ATIS/METAR times are always UTC regardless of whether the source
+    // text bothers to mark it, so "Zulu" is always appended here, whether
+    // or not a Z was actually present.
+    text = text.replace(/\bTIME\s+(\d{2})(\d{2})(\d{2})Z?\b/gi, function (full, day, hh, mm) {
+      return 'Time day ' + day + ', ' + hh + ' ' + mm + ' Zulu';
+    });
+    text = text.replace(/\bTIME\s+(\d{4})Z?\b/gi, function (full, digits) {
+      return 'Time ' + spellDigits(digits) + ' Zulu';
     });
     text = text.replace(/\b(\d{2})(\d{2})(\d{2})Z\b/g, function (full, day, hh, mm) {
       return 'day ' + day + ', ' + hh + ' ' + mm + ' Zulu';
     });
     text = text.replace(/\b(\d{4})Z\b/g, function (full, digits) {
       return spellDigits(digits) + ' Zulu';
+    });
+    // Bare day+hour+minute with no Z and no "TIME" label - a standalone
+    // six-digit run otherwise essentially never appears in ATIS text, so
+    // this is safe to treat as a timestamp too.
+    text = text.replace(/\b(\d{2})(\d{2})(\d{2})\b/g, function (full, day, hh, mm) {
+      return 'day ' + day + ', ' + hh + ' ' + mm + ' Zulu';
     });
 
     // Any letter standing alone (info identifier, spelled-out designator,
@@ -870,11 +894,14 @@
       if (wasThisBtn) return; // tapping the playing message's button just stops it
 
       // An ATIS message's "from" is the station callsign (e.g. "EDDF_ATIS",
-      // "LKPR_A_ATIS", "LKPR_D_ATIS") - the ICAO code is always what comes
-      // before the first underscore, regardless of which suffix variant.
+      // "LKPR_A_ATIS", "LKPR_D_ATIS", possibly other suffix variants) - it
+      // always starts with the airport's ICAO code, so just take the
+      // leading run of letters rather than assuming one specific separator
+      // or suffix pattern.
+      var icaoMatch = (m.from || '').toUpperCase().match(/^[A-Z]{4}/);
       var spoken = m.type === 'METAR'
         ? metarToSpeech(m.text)
-        : atisToSpeech(m.text, (m.from || '').split('_')[0].toUpperCase());
+        : atisToSpeech(m.text, icaoMatch ? icaoMatch[0] : null);
       var utter = new SpeechSynthesisUtterance(spoken);
       utter.lang = 'en-US'; // aviation phraseology is always in English
       utter.rate = 0.5; // was near-normal speed (0.95) - way too fast to actually follow
@@ -1525,7 +1552,10 @@
   });
 
   document.getElementById('btnRequestMetar').addEventListener('click', function () {
-    postForm('/api/metar', { station: document.getElementById('fMetarStation').value });
+    var field = document.getElementById('fMetarStation');
+    postForm('/api/metar', { station: field.value }).then(function (result) {
+      if (result && result.ok) field.value = '';
+    });
   });
   document.getElementById('fMetarStation').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
@@ -1535,7 +1565,10 @@
   });
 
   document.getElementById('btnRequestAtis').addEventListener('click', function () {
-    postForm('/api/atis', { callsign: document.getElementById('fAtisCallsign').value });
+    var field = document.getElementById('fAtisCallsign');
+    postForm('/api/atis', { callsign: field.value }).then(function (result) {
+      if (result && result.ok) field.value = '';
+    });
   });
   document.getElementById('fAtisCallsign').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
