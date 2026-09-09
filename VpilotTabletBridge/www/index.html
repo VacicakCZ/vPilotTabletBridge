@@ -74,6 +74,11 @@
     padding: 0 12px; max-height: 0; overflow: hidden; transition: max-height .18s ease, padding .18s ease;
   }
   .connect-form.open { max-height: 220px; padding: 10px 12px 14px; }
+  /* Settings has grown past what fits in the shared 220px cap above (now
+     5 rows plus a hint line) - the CID row in particular was getting
+     clipped, only appearing to "become visible" once focusing its input
+     scrolled the page in a way that happened to reveal it. */
+  #settingsPanel.open { max-height: 320px; }
   .connect-form .hint { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   .connect-form .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .connect-form input {
@@ -429,6 +434,8 @@
       fplArrival: 'Přílet',
       fplNotFound: 'Pro toto CID nebyl na VATSIMu nalezen žádný letový plán.',
       fplFetchError: 'Nepodařilo se načíst data z VATSIMu - tablet potřebuje pro tuto funkci vlastní připojení k internetu.',
+      cidSaved: 'CID uloženo.',
+      cidCleared: 'CID vymazáno.',
       langLabel: 'Jazyk',
       on: 'Zapnuto', off: 'Vypnuto',
       tabMessages: 'Zprávy', tabNotes: 'Poznámky', tabTraffic: 'Provoz', tabPrivate: 'Private',
@@ -470,6 +477,8 @@
       fplArrival: 'Arrival',
       fplNotFound: 'No flight plan found on VATSIM for this CID.',
       fplFetchError: 'Could not reach VATSIM\'s data feed - this feature needs the tablet itself to have internet access.',
+      cidSaved: 'CID saved.',
+      cidCleared: 'CID cleared.',
       langLabel: 'Language',
       on: 'On', off: 'Off',
       tabMessages: 'Messages', tabNotes: 'Notes', tabTraffic: 'Traffic', tabPrivate: 'Private',
@@ -1726,6 +1735,7 @@
   document.getElementById('btnVatsimCidSave').addEventListener('click', function () {
     var cid = document.getElementById('fVatsimCid').value.trim();
     try { localStorage.setItem('tabletbridge-vatsim-cid', cid); } catch (e) { /* ignore */ }
+    showToast(t(cid ? 'cidSaved' : 'cidCleared'));
     fetchFlightPlan();
   });
   fetchFlightPlan();
