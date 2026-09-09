@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content">
+<title>vPilot Tablet Bridge</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #10151c;
+    --panel-border: #1e2833;
+    --row: #141a22;
+    --row-flash: #22303f;
+    --text: #e8edf2;
+    --muted: #7c8a99;
+    --radio: #3fa9f5;
+    --private: #3ddc84;
+    --selcal: #ff5c5c;
+    --broadcast: #b98cff;
+    --system: #7c8a99;
+    --sent: #ffb454;
+    --weather: #5fd0e8;
+    --ok: #3ddc84;
+    --off: #4a5a6a;
+    --danger: #ff5c5c;
+    --accent: #1f6feb;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    overflow: hidden;
+  }
+  /* Safety-net fallback for the on-screen keyboard (see the focusin/focusout
+     handling in the script): iOS Safari/WebKit - which is also what Chrome
+     on iPad runs on under the hood - draws the keyboard as an overlay and
+     does not shrink the page the way our visualViewport height trick
+     assumes elsewhere. Letting the page scroll only while a field is
+     focused gives the browser's native "scroll the focused input into
+     view" behavior somewhere to actually work. */
+  body.kb-open { overflow-y: auto; }
+  #app { display: flex; flex-direction: column; height: 100%; min-height: 100%; }
+
+  /* ---- toolbar ---- */
+  .toolbar {
+    flex: none; background: var(--panel); border-bottom: 1px solid var(--panel-border);
+    padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar-right { display: flex; align-items: center; gap: 10px; }
+
+  .tbtn {
+    background: #1b2430; border: 1px solid #2a3644; color: var(--text);
+    border-radius: 7px; padding: 8px 14px; font-size: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .tbtn:active { background: #2a3644; }
+  .tbtn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tbtn.danger { background: #3a1414; border-color: var(--danger); color: #ffb4b4; }
+  .tbtn.on { background: #14351f; border-color: var(--ok); color: #b9f5cf; }
+  .tbtn.icon-btn { padding: 8px 10px; font-size: 16px; line-height: 1; }
+  .conn-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .conn-pill .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--off); }
+  .conn-pill.on .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .conn-duration { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .server-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--off); flex: none; }
+  .server-dot.ok { background: var(--ok); }
+
+  /* ---- connect slide-down ---- */
+  .connect-form {
+    flex: none; background: var(--panel); border-bottom: 1px solid var(--panel-border);
+    padding: 0 12px; max-height: 0; overflow: hidden; transition: max-height .18s ease, padding .18s ease;
+  }
+  .connect-form.open { max-height: 220px; padding: 10px 12px 14px; }
+  .connect-form .hint { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .connect-form .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .connect-form input {
+    background: #0e141b; border: 1px solid #2a3644; color: var(--text);
+    border-radius: 8px; padding: 9px 10px; font-size: 15px; flex: 1; min-width: 100px;
+  }
+  .connect-form .row2 { margin-top: 8px; }
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 4px 0; font-size: 14px;
+  }
+
+  /* ---- workspace: controllers panel + main panel ---- */
+  .workspace { flex: 1; display: flex; min-height: 0; }
+  .controllers-panel {
+    flex: none; width: 240px; background: var(--panel); border-right: 1px solid var(--panel-border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .controllers-panel .panel-title {
+    flex: none; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+    padding: 10px 12px 6px;
+  }
+  .controllers-list { flex: 1; overflow-y: auto; padding: 0 12px 12px; }
+  .controllers-collapse-btn { display: none; }
+
+  .ctl-category { font-size: 13px; font-weight: 600; color: var(--radio); margin: 10px 0 4px; }
+  .ctl-category:first-child { margin-top: 0; }
+  .ctl-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; font-size: 13px; color: var(--text); }
+  .ctl-row .freq { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ctl-empty { font-size: 12px; color: var(--muted); padding: 4px 0 0; }
+
+  .main-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+  .tabs { flex: none; display: flex; border-bottom: 1px solid var(--panel-border); background: var(--panel); }
+  .tabs button {
+    background: none; border: none; color: var(--muted); font-size: 14px;
+    padding: 10px 18px; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+
+  .tab-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .tab-content[hidden] { display: none; }
+
+  .filters { flex: none; display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px 0; }
+  .filters button {
+    background: #1b2430; color: var(--text); border: 1px solid #2a3644;
+    border-radius: 20px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+  }
+  .filters button.active { background: #2a3644; border-color: #3d4d60; }
+
+  .list-scroll { flex: 1; overflow-y: auto; padding: 8px 12px; }
+
+  .msg {
+    background: var(--row); border-left: 4px solid var(--system);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;
+  }
+  .msg.flash { animation: flash 1.1s ease; }
+  .msg.RADIO { border-left-color: var(--radio); }
+  .msg.PRIVATE { border-left-color: var(--private); }
+  .msg.SELCAL { border-left-color: var(--selcal); }
+  .msg.BROADCAST { border-left-color: var(--broadcast); }
+  .msg.SYSTEM { border-left-color: var(--system); }
+  .msg.SENT_RADIO, .msg.SENT_PRIVATE { border-left-color: var(--sent); margin-left: 12%; }
+  .msg.METAR, .msg.ATIS { border-left-color: var(--weather); }
+  .msg .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 10px; align-items: center; }
+  .msg .tag { font-weight: 700; letter-spacing: .04em; }
+  .msg.RADIO .tag { color: var(--radio); }
+  .msg.PRIVATE .tag { color: var(--private); }
+  .msg.SELCAL .tag { color: var(--selcal); }
+  .msg.BROADCAST .tag { color: var(--broadcast); }
+  .msg.SENT_RADIO .tag, .msg.SENT_PRIVATE .tag { color: var(--sent); }
+  .msg.METAR .tag, .msg.ATIS .tag { color: var(--weather); }
+  .msg .text { font-size: 18px; line-height: 1.35; word-wrap: break-word; white-space: pre-wrap; }
+  .reply-link { background: none; border: none; color: var(--private); font-size: 12px; padding: 0; cursor: pointer; text-decoration: underline; }
+  @keyframes flash { 0% { background: var(--row-flash); } 100% { background: var(--row); } }
+  #empty { color: var(--muted); text-align: center; padding: 40px 0; font-size: 14px; }
+
+  .notes-wrap { flex: 1; padding: 10px 12px; display: flex; }
+  #notesArea {
+    flex: 1; resize: none; background: var(--row); border: 1px solid var(--panel-border); color: var(--text);
+    border-radius: 8px; padding: 12px; font-size: 16px; line-height: 1.4; font-family: inherit;
+  }
+
+  .replybar {
+    flex: none; background: var(--panel); border-top: 1px solid var(--panel-border);
+    padding: 8px 12px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  .reply-mode { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; color: var(--muted); }
+  .reply-mode .chip {
+    background: #1b2430; border: 1px solid #2a3644; border-radius: 14px; padding: 3px 10px;
+    color: var(--text); font: inherit; cursor: pointer;
+  }
+  .reply-mode .chip.private { border-color: var(--private); color: var(--private); }
+  .reply-mode button.clear { background: none; border: none; color: var(--muted); font-size: 15px; cursor: pointer; padding: 0 4px; }
+  .reply-row { display: flex; gap: 8px; }
+  .reply-row input {
+    flex: 1; background: #0e141b; border: 1px solid #2a3644; color: var(--text);
+    border-radius: 20px; padding: 11px 16px; font-size: 16px;
+  }
+  .reply-row button { border-radius: 20px; padding: 10px 20px; }
+  .quick-replies { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .qr-btn {
+    background: #1b2430; border: 1px solid #2a3644; color: var(--text);
+    border-radius: 14px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+  }
+  .qr-btn:active { background: #2a3644; }
+
+  .panel-hint { font-size: 12px; color: var(--muted); padding: 8px 12px 0; }
+  .traffic-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--row); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;
+  }
+  .traffic-row .callsign { font-weight: 700; font-size: 15px; }
+  .traffic-row .details { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .tbtn.small { padding: 5px 10px; font-size: 12px; }
+
+  .toast {
+    position: fixed; top: 54px; left: 50%; transform: translateX(-50%);
+    background: #3a1414; color: #ffb4b4; border: 1px solid var(--danger);
+    border-radius: 8px; padding: 8px 16px; font-size: 13px; z-index: 40;
+    display: none;
+  }
+
+  /* narrow screens: stack, collapse the controllers list by default */
+  @media (max-width: 820px) {
+    .workspace { flex-direction: column; }
+    .controllers-panel {
+      width: auto; border-right: none; border-bottom: 1px solid var(--panel-border);
+      max-height: 0; overflow: hidden; order: 2;
+    }
+    .controllers-panel.force-open { max-height: 40vh; }
+    .main-panel { order: 1; }
+    .controllers-collapse-btn {
+      display: block; width: 100%; text-align: left; background: var(--panel); color: var(--muted);
+      border: none; border-top: 1px solid var(--panel-border); padding: 8px 12px; font-size: 12px; cursor: pointer;
+      order: 3;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <button class="tbtn primary" id="btnConnectToggle" data-i18n="connect">Připojit</button>
+    </div>
+    <div class="toolbar-right">
+      <span class="conn-pill off" id="connPill"><span class="dot"></span><span id="connText" data-i18n="disconnected">Odpojeno</span><span id="connDuration" class="conn-duration"></span></span>
+      <span class="server-dot" id="serverDot" data-i18n-title="serverStatusTitle" title="Stav vlastního serveru"></span>
+      <button class="tbtn icon-btn" id="btnWeather" title="METAR / ATIS" aria-label="METAR / ATIS">☁</button>
+      <button class="tbtn icon-btn" id="btnSettings" data-i18n-title="settingsTitle" title="Nastavení" aria-label="Nastavení">⚙</button>
+    </div>
+  </header>
+
+  <div class="connect-form" id="connectForm">
+    <div class="hint" data-i18n="connectHint">Volací znak, typ letadla (ICAO) a volitelně SELCAL - naposledy použité se předvyplní.</div>
+    <div class="row">
+      <input type="text" id="fCallsign" data-i18n-placeholder="callsignPlaceholder" placeholder="Volací znak (např. OK1ABC)" autocapitalize="characters">
+      <input type="text" id="fTypeCode" list="aircraftTypeList" data-i18n-placeholder="typeCodePlaceholder" placeholder="Typ letadla (ICAO kód, např. A320)" autocapitalize="characters" autocomplete="off">
+      <datalist id="aircraftTypeList"></datalist>
+      <input type="text" id="fSelcal" data-i18n-placeholder="selcalPlaceholder" placeholder="SELCAL (volitelné)" autocapitalize="characters">
+    </div>
+    <div class="row row2">
+      <button class="tbtn primary" id="btnConnectSubmit" data-i18n="connectSubmit">Připojit se</button>
+    </div>
+  </div>
+
+  <div class="connect-form" id="weatherPanel">
+    <div class="hint" data-i18n="weatherHint">Oba stačí zadat jako ICAO kód letiště (např. LKPR). U ATIS se zkusí najít zvlášť Arrival i Departure, pokud je letiště takhle dělí. Výsledek se objeví v logu zpráv, ve filtru "METAR/ATIS".</div>
+    <div class="row">
+      <input type="text" id="fMetarStation" data-i18n-placeholder="metarPlaceholder" placeholder="METAR - ICAO letiště (např. LKPR)" autocapitalize="characters">
+      <button class="tbtn" id="btnRequestMetar">METAR</button>
+    </div>
+    <div class="row row2">
+      <input type="text" id="fAtisCallsign" data-i18n-placeholder="atisPlaceholder" placeholder="ATIS - ICAO letiště (např. LKPR)" autocapitalize="characters">
+      <button class="tbtn" id="btnRequestAtis">ATIS</button>
+    </div>
+  </div>
+
+  <div class="connect-form" id="settingsPanel">
+    <div class="hint" data-i18n="settingsHint">Nastavení tabletu</div>
+    <div class="settings-row">
+      <span data-i18n="rememberCallsignLabel">Pamatovat volací znak mezi připojeními</span>
+      <button class="tbtn" id="btnRememberCallsign">Zapnuto</button>
+    </div>
+    <div class="settings-row">
+      <span data-i18n="soundsLabel">Zvuky u nových zpráv</span>
+      <button class="tbtn" id="btnSoundsToggle">Zapnuto</button>
+    </div>
+    <div class="settings-row">
+      <span data-i18n="langLabel">Jazyk</span>
+      <div style="display:flex; gap:6px;">
+        <button class="tbtn" id="btnLangCs">CS</button>
+        <button class="tbtn" id="btnLangEn">EN</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <aside class="controllers-panel" id="controllersPanel">
+      <div class="panel-title">Controllers In Range</div>
+      <div class="controllers-list" id="controllersList"></div>
+    </aside>
+    <button class="controllers-collapse-btn" id="btnToggleControllers">Controllers In Range ▾</button>
+
+    <section class="main-panel">
+      <div class="tabs">
+        <button class="active" data-tab="messages" data-i18n="tabMessages">Zprávy</button>
+        <button data-tab="traffic" data-i18n="tabTraffic">Provoz</button>
+        <button data-tab="notes" data-i18n="tabNotes">Poznámky</button>
+      </div>
+
+      <div class="tab-content" id="tabMessages">
+        <div class="filters" id="filters">
+          <button data-type="ALL" class="active" data-i18n="filterAll">Vše</button>
+          <button data-type="RADIO">Radio</button>
+          <button data-type="PRIVATE">Private</button>
+          <button data-type="SELCAL">SELCAL</button>
+          <button data-type="SYSTEM" data-i18n="filterSystem">Systém</button>
+          <button data-type="WEATHER">METAR/ATIS</button>
+        </div>
+        <div class="list-scroll">
+          <div id="list"></div>
+          <div id="empty" style="display:none" data-i18n="emptyMessages">Zatím žádné zprávy.</div>
+        </div>
+        <div class="replybar">
+          <div class="quick-replies">
+            <button class="qr-btn" data-phrase="Wilco">Wilco</button>
+            <button class="qr-btn" data-phrase="Roger">Roger</button>
+            <button class="qr-btn" data-phrase="Standby">Standby</button>
+          </div>
+          <div class="reply-mode">
+            <span data-i18n="sendingLabel">Odesílám:</span>
+            <button class="chip" id="replyModeChip" data-i18n-title="replyChipTitle" title="Klepnutím zadáte komu poslat private message" data-i18n="radioModeChip">Rádio (aktuální frekvence)</button>
+            <button class="clear" id="btnClearReply" data-i18n-title="clearReplyTitle" title="Zpět na rádio" style="display:none">✕</button>
+          </div>
+          <div class="reply-row">
+            <input type="text" id="replyInput" data-i18n-placeholder="replyPlaceholder" placeholder="Napište zprávu…" autocapitalize="sentences">
+            <button class="tbtn primary" id="btnSend" data-i18n="sendBtn">Odeslat</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tabTraffic" hidden>
+        <div class="panel-hint" data-i18n="trafficHint">Provoz, který právě modeluje vPilot. Skutečná vzdálenost od vás bohužel není k dispozici - vPilot ji pluginům nedává.</div>
+        <div class="list-scroll">
+          <div id="trafficList"></div>
+          <div id="trafficEmpty" style="display:none" data-i18n="trafficEmpty">Žádný okolní provoz.</div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tabNotes" hidden>
+        <div class="notes-wrap">
+          <textarea id="notesArea" data-i18n-placeholder="notesPlaceholder" placeholder="Poznámky uložené jen v tomto tabletu (lokálně v prohlížeči)…"></textarea>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  // ---------- language ----------
+  // Covers the static app chrome (buttons, labels, hints, placeholders) plus
+  // the handful of dynamic strings JS sets directly (toasts, confirm/prompt
+  // dialogs). Deliberately NOT covered: the "Controllers In Range" panel
+  // (title, its 8 category headings, the collapse button) - those stay in
+  // English always, to match vPilot's own window and standard ATC
+  // phraseology, which pilots use in English regardless of their own
+  // language. Also NOT covered: the handful of SYSTEM log lines the plugin
+  // itself writes server-side (e.g. "Připojování jako..." on connect) - text
+  // already committed to the message log at the time it was written, always
+  // in Czech; translating those would mean sending the UI language to the
+  // plugin and is more machinery than a few status lines warrant.
+  var I18N = {
+    cs: {
+      connect: 'Připojit', disconnect: 'Odpojit', disconnected: 'Odpojeno',
+      serverStatusTitle: 'Stav vlastního serveru', settingsTitle: 'Nastavení',
+      connectHint: 'Volací znak, typ letadla (ICAO) a volitelně SELCAL - naposledy použité se předvyplní.',
+      callsignPlaceholder: 'Volací znak (např. OK1ABC)',
+      typeCodePlaceholder: 'Typ letadla (ICAO kód, např. A320)',
+      selcalPlaceholder: 'SELCAL (volitelné)',
+      connectSubmit: 'Připojit se',
+      weatherHint: 'Oba stačí zadat jako ICAO kód letiště (např. LKPR). U ATIS se zkusí najít zvlášť Arrival i Departure, pokud je letiště takhle dělí. Výsledek se objeví v logu zpráv, ve filtru "METAR/ATIS".',
+      metarPlaceholder: 'METAR - ICAO letiště (např. LKPR)',
+      atisPlaceholder: 'ATIS - ICAO letiště (např. LKPR)',
+      settingsHint: 'Nastavení tabletu',
+      rememberCallsignLabel: 'Pamatovat volací znak mezi připojeními',
+      soundsLabel: 'Zvuky u nových zpráv',
+      langLabel: 'Jazyk',
+      on: 'Zapnuto', off: 'Vypnuto',
+      tabMessages: 'Zprávy', tabNotes: 'Poznámky', tabTraffic: 'Provoz',
+      trafficHint: 'Provoz, který právě modeluje vPilot. Skutečná vzdálenost od vás bohužel není k dispozici - vPilot ji pluginům nedává.',
+      trafficEmpty: 'Žádný okolní provoz.',
+      filterAll: 'Vše', filterSystem: 'Systém',
+      emptyMessages: 'Zatím žádné zprávy.',
+      sendingLabel: 'Odesílám:',
+      radioModeChip: 'Rádio (aktuální frekvence)',
+      replyChipTitle: 'Klepnutím zadáte komu poslat private message',
+      clearReplyTitle: 'Zpět na rádio',
+      replyPlaceholder: 'Napište zprávu…',
+      sendBtn: 'Odeslat',
+      notesPlaceholder: 'Poznámky uložené jen v tomto tabletu (lokálně v prohlížeči)…',
+      replyLink: 'Odpovědět',
+      actionFailed: 'Akce selhala.', serverNotResponding: 'Server neodpovídá.',
+      confirmDisconnect: 'Odpojit od sítě VATSIM?',
+      promptPrivateTo: 'Poslat private message komu? (volací znak)',
+      lastUsedAircraft: 'Naposledy použité'
+    },
+    en: {
+      connect: 'Connect', disconnect: 'Disconnect', disconnected: 'Disconnected',
+      serverStatusTitle: 'Own server status', settingsTitle: 'Settings',
+      connectHint: 'Callsign, aircraft type (ICAO) and optional SELCAL - the last values used are pre-filled.',
+      callsignPlaceholder: 'Callsign (e.g. OK1ABC)',
+      typeCodePlaceholder: 'Aircraft type (ICAO code, e.g. A320)',
+      selcalPlaceholder: 'SELCAL (optional)',
+      connectSubmit: 'Connect',
+      weatherHint: 'Both just need an airport ICAO code (e.g. LKPR). For ATIS, separate Arrival and Departure ATIS are looked up too if the airport splits them that way. The result appears in the message log, under the "METAR/ATIS" filter.',
+      metarPlaceholder: 'METAR - airport ICAO (e.g. LKPR)',
+      atisPlaceholder: 'ATIS - airport ICAO (e.g. LKPR)',
+      settingsHint: 'Tablet settings',
+      rememberCallsignLabel: 'Remember callsign between connections',
+      soundsLabel: 'Sounds for new messages',
+      langLabel: 'Language',
+      on: 'On', off: 'Off',
+      tabMessages: 'Messages', tabNotes: 'Notes', tabTraffic: 'Traffic',
+      trafficHint: 'Traffic currently modeled by vPilot. Real distance from you isn\'t available - vPilot doesn\'t give plugins that.',
+      trafficEmpty: 'No nearby traffic.',
+      filterAll: 'All', filterSystem: 'System',
+      emptyMessages: 'No messages yet.',
+      sendingLabel: 'Sending:',
+      radioModeChip: 'Radio (current frequency)',
+      replyChipTitle: 'Tap to choose who to send a private message to',
+      clearReplyTitle: 'Back to radio',
+      replyPlaceholder: 'Type a message…',
+      sendBtn: 'Send',
+      notesPlaceholder: 'Notes saved only on this tablet (locally in the browser)…',
+      replyLink: 'Reply',
+      actionFailed: 'Action failed.', serverNotResponding: 'Server not responding.',
+      confirmDisconnect: 'Disconnect from the VATSIM network?',
+      promptPrivateTo: 'Send a private message to whom? (callsign)',
+      lastUsedAircraft: 'Last used'
+    }
+  };
+
+  var currentLang = 'cs';
+  try { currentLang = localStorage.getItem('tabletbridge-lang') || 'cs'; } catch (e) { /* ignore */ }
+
+  function t(key) {
+    return (I18N[currentLang] && I18N[currentLang][key]) || I18N.cs[key] || key;
+  }
+
+  function applyTranslations() {
+    document.documentElement.lang = currentLang;
+    document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.getAttribute('data-i18n')); });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) { el.placeholder = t(el.getAttribute('data-i18n-placeholder')); });
+    document.querySelectorAll('[data-i18n-title]').forEach(function (el) { el.title = t(el.getAttribute('data-i18n-title')); });
+
+    document.getElementById('btnLangCs').className = 'tbtn' + (currentLang === 'cs' ? ' on' : '');
+    document.getElementById('btnLangEn').className = 'tbtn' + (currentLang === 'en' ? ' on' : '');
+
+    // A few dynamic bits aren't plain data-i18n text and need refreshing too.
+    if (!replyTarget) document.getElementById('replyModeChip').textContent = t('radioModeChip');
+    refreshSoundsToggle();
+    lastStatusSignature = null; // forces pollStatus to redraw connect/disconnect + remember-callsign text now, not in up to 2s
+    pollStatus();
+  }
+
+  function setLang(lang) {
+    currentLang = lang;
+    try { localStorage.setItem('tabletbridge-lang', lang); } catch (e) { /* ignore */ }
+    applyTranslations();
+  }
+
+  // On-screen keyboard handling: #app is height:100% of a body with
+  // overflow:hidden, which is normally what keeps this feeling like a native
+  // app rather than a scrolling webpage. But on a tablet, when the virtual
+  // keyboard opens, that 100% height doesn't shrink (iOS Safari in
+  // particular just overlays the keyboard on top), so anything docked to
+  // the bottom - the reply bar, the connect form - ends up hidden behind
+  // it, with nothing able to scroll it into view since scrolling is
+  // disabled. window.visualViewport reliably reports the actually-visible
+  // area even when the layout viewport doesn't change, so we resize #app
+  // to match it: the flex column then naturally keeps the toolbar/connect
+  // form/reply bar (all flex:none) inside the visible area above the
+  // keyboard, shrinking only the scrollable message/controller lists.
+  var lastAppliedHeight = 0;
+  function applyVisibleHeight() {
+    var vv = window.visualViewport;
+    var h = Math.round(vv ? vv.height : window.innerHeight);
+    if (Math.abs(h - lastAppliedHeight) < 40) return;
+    lastAppliedHeight = h;
+    document.getElementById('app').style.height = h + 'px';
+  }
+  // Deliberately NOT listening to visualViewport's own "resize" here (even
+  // with the 40px guard above). On Chrome for iOS specifically - not Safari,
+  // even though both run on WebKit - that event also fires as Chrome's own
+  // address bar auto-hides/shows on the slightest scroll, and each call
+  // nudging #app's height was itself enough to perturb the page and
+  // retrigger the address bar animation the other way: a feedback loop that
+  // reads as continuous flicker. Keyboard show/hide is instead handled
+  // below, tied directly to focusin/focusout on a field - that's a real,
+  // one-shot event, not a passive listener that can start oscillating.
+  // Plain window "resize" is kept for genuine orientation changes; it does
+  // not fire for either the keyboard or the address bar on iOS.
+  window.addEventListener('resize', applyVisibleHeight);
+  applyVisibleHeight();
+
+  // Belt-and-suspenders for iOS Safari/WebKit (incl. Chrome on iPad, same
+  // engine): the visualViewport resize above doesn't reliably keep a
+  // focused field clear of the keyboard there, because WebKit overlays the
+  // keyboard on top of a page that visually hasn't moved. Unlocking page
+  // scroll only while a field is focused, then explicitly scrolling that
+  // field into view once the keyboard has finished animating in, is the
+  // combination that actually works across iOS Safari/Chrome and Android
+  // Chrome alike.
+  function isTextField(el) {
+    return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+  }
+  document.addEventListener('focusin', function (e) {
+    if (!isTextField(e.target)) return;
+    document.body.classList.add('kb-open');
+    var el = e.target;
+    setTimeout(function () {
+      applyVisibleHeight();
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 350);
+  });
+  document.addEventListener('focusout', function () {
+    setTimeout(function () {
+      if (!isTextField(document.activeElement)) {
+        document.body.classList.remove('kb-open');
+        window.scrollTo(0, 0);
+        applyVisibleHeight();
+      }
+    }, 200);
+  });
+
+  var CATEGORY_LABELS = [
+    ['CENTER', 'Center'],
+    ['APPDEP', 'Approach/Departure'],
+    ['TOWER', 'Tower'],
+    ['GROUND', 'Ground'],
+    ['RAMP', 'Ramp'],
+    ['DELIVERY', 'Clearance Delivery'],
+    ['ATIS', 'ATIS'],
+    ['OBSERVER', 'Observers'],
+    ['OTHER', 'Ostatní']
+  ];
+
+  // ICAO aircraft type designators (what vPilot's connect actually expects -
+  // not IATA airline codes). Covers the aircraft most commonly seen on
+  // VATSIM; free typing still works for anything not in this list.
+  var AIRCRAFT_TYPES = [
+    ['A319', 'Airbus A319'], ['A320', 'Airbus A320'], ['A321', 'Airbus A321'],
+    ['A20N', 'Airbus A320neo'], ['A21N', 'Airbus A321neo'], ['A318', 'Airbus A318'],
+    ['A332', 'Airbus A330-200'], ['A333', 'Airbus A330-300'], ['A339', 'Airbus A330-900neo'],
+    ['A343', 'Airbus A340-300'], ['A346', 'Airbus A340-600'],
+    ['A359', 'Airbus A350-900'], ['A35K', 'Airbus A350-1000'], ['A388', 'Airbus A380-800'],
+    ['B734', 'Boeing 737-400'], ['B737', 'Boeing 737-700'], ['B738', 'Boeing 737-800'], ['B739', 'Boeing 737-900'],
+    ['B37M', 'Boeing 737 MAX 7'], ['B38M', 'Boeing 737 MAX 8'], ['B39M', 'Boeing 737 MAX 9'],
+    ['B752', 'Boeing 757-200'], ['B753', 'Boeing 757-300'],
+    ['B762', 'Boeing 767-200'], ['B763', 'Boeing 767-300'], ['B764', 'Boeing 767-400'],
+    ['B772', 'Boeing 777-200'], ['B773', 'Boeing 777-300'], ['B77L', 'Boeing 777-200LR'], ['B77W', 'Boeing 777-300ER'],
+    ['B788', 'Boeing 787-8'], ['B789', 'Boeing 787-9'], ['B78X', 'Boeing 787-10'],
+    ['B744', 'Boeing 747-400'], ['B748', 'Boeing 747-8'],
+    ['CRJ2', 'Bombardier CRJ-200'], ['CRJ7', 'Bombardier CRJ-700'], ['CRJ9', 'Bombardier CRJ-900'], ['CRJX', 'Bombardier CRJ-1000'],
+    ['E135', 'Embraer 135'], ['E145', 'Embraer 145'],
+    ['E170', 'Embraer 170'], ['E175', 'Embraer 175'], ['E190', 'Embraer 190'], ['E195', 'Embraer 195'],
+    ['E290', 'Embraer E190-E2'], ['E295', 'Embraer E195-E2'],
+    ['AT72', 'ATR 72'], ['AT76', 'ATR 72-600'], ['DH8D', 'Bombardier Dash 8 Q400'], ['SF34', 'Saab 340'],
+    ['BE20', 'Beechcraft King Air 200'], ['PC12', 'Pilatus PC-12'], ['TBM9', 'Daher TBM 900'],
+    ['C172', 'Cessna 172'], ['C182', 'Cessna 182'], ['C152', 'Cessna 152'], ['C208', 'Cessna 208 Caravan'],
+    ['PA28', 'Piper Cherokee/Warrior'], ['PA34', 'Piper Seneca'],
+    ['DA40', 'Diamond DA40'], ['DA42', 'Diamond DA42'], ['SR22', 'Cirrus SR22'], ['BE58', 'Beechcraft Baron 58'],
+    ['GLF4', 'Gulfstream IV'], ['GLF5', 'Gulfstream V'], ['GLF6', 'Gulfstream G650'],
+    ['CL30', 'Bombardier Challenger 300'], ['CL35', 'Bombardier Challenger 350'], ['CL60', 'Bombardier Challenger 600'],
+    ['F900', 'Dassault Falcon 900'], ['FA7X', 'Dassault Falcon 7X'],
+    ['C56X', 'Cessna Citation Excel'], ['C68A', 'Cessna Citation Latitude'], ['C750', 'Cessna Citation X'],
+    ['LJ45', 'Learjet 45'], ['LJ60', 'Learjet 60'], ['PC24', 'Pilatus PC-24']
+  ];
+
+  function populateAircraftTypes(lastUsed) {
+    var seen = {};
+    var ordered = [];
+    if (lastUsed) {
+      var match = AIRCRAFT_TYPES.filter(function (a) { return a[0] === lastUsed.toUpperCase(); })[0];
+      ordered.push(match || [lastUsed.toUpperCase(), t('lastUsedAircraft')]);
+      seen[ordered[0][0]] = true;
+    }
+    AIRCRAFT_TYPES.forEach(function (a) { if (!seen[a[0]]) { ordered.push(a); seen[a[0]] = true; } });
+
+    var datalist = document.getElementById('aircraftTypeList');
+    datalist.innerHTML = '';
+    ordered.forEach(function (a) {
+      var opt = document.createElement('option');
+      opt.value = a[0];
+      opt.label = a[0] + ' – ' + a[1];
+      datalist.appendChild(opt);
+    });
+  }
+  populateAircraftTypes(null);
+
+  var listEl = document.getElementById('list');
+  var emptyEl = document.getElementById('empty');
+  var serverDot = document.getElementById('serverDot');
+  var toastEl = document.getElementById('toast');
+
+  var filterButtons = document.querySelectorAll('#filters button');
+  var activeFilter = 'ALL';
+  // "Have we already shown this message" used to be tracked in a knownIds
+  // map, but that lives only in page memory - if the tablet's browser
+  // silently reloads the tab (iOS does this under memory pressure even for
+  // a foreground tab left idle a while), the map resets to empty and every
+  // still-present message looks "new" again, re-flashing. A message's id is
+  // a strictly increasing counter, so remembering just the highest id seen
+  // - restored from sessionStorage, which survives that kind of reload - is
+  // both simpler and immune to this.
+  var lastMaxId = 0;
+  try { lastMaxId = parseInt(sessionStorage.getItem('tabletbridge-lastmax'), 10) || 0; } catch (e) { /* ignore */ }
+  var firstLoad = true;
+  var allMessages = [];
+
+  var replyTarget = null; // null = radio, otherwise a callsign string
+  var connectFormPrefilled = false;
+  var rememberBtnDirty = false;
+  var myCallsign = null; // kept in sync from pollStatus, used to spot radio calls naming us
+  var connectedSinceMs = null;
+
+  function formatDuration(ms) {
+    var totalMin = Math.floor(ms / 60000);
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return h > 0 ? (h + 'h ' + m + 'm') : (m + 'm');
+  }
+  function updateConnDuration() {
+    var el = document.getElementById('connDuration');
+    el.textContent = connectedSinceMs ? (' · ' + formatDuration(Date.now() - connectedSinceMs)) : '';
+  }
+  setInterval(updateConnDuration, 30000);
+
+  function showToast(text) {
+    toastEl.textContent = text;
+    toastEl.style.display = 'block';
+    setTimeout(function () { toastEl.style.display = 'none'; }, 3500);
+  }
+
+  function postForm(path, data) {
+    var params = new URLSearchParams();
+    Object.keys(data).forEach(function (k) { params.append(k, data[k]); });
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    }).then(function (r) { return r.json(); }).then(function (result) {
+      if (!result.ok) showToast(result.error || t('actionFailed'));
+      return result;
+    }).catch(function () {
+      showToast(t('serverNotResponding'));
+    });
+  }
+
+  // ---------- tabs ----------
+  var TAB_IDS = { messages: 'tabMessages', traffic: 'tabTraffic', notes: 'tabNotes' };
+  function activateTab(name) {
+    document.querySelectorAll('.tabs button').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-tab') === name);
+    });
+    Object.keys(TAB_IDS).forEach(function (key) {
+      document.getElementById(TAB_IDS[key]).hidden = key !== name;
+    });
+  }
+  document.querySelectorAll('.tabs button').forEach(function (btn) {
+    btn.addEventListener('click', function () { activateTab(btn.getAttribute('data-tab')); });
+  });
+
+  // ---------- notes (local to this tablet/browser only) ----------
+  var notesArea = document.getElementById('notesArea');
+  try { notesArea.value = localStorage.getItem('tabletbridge-notes') || ''; } catch (e) { /* ignore */ }
+  var notesTimer = null;
+  notesArea.addEventListener('input', function () {
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(function () {
+      try { localStorage.setItem('tabletbridge-notes', notesArea.value); } catch (e) { /* ignore */ }
+    }, 300);
+  });
+
+  // ---------- controllers panel collapse (narrow screens) ----------
+  document.getElementById('btnToggleControllers').addEventListener('click', function () {
+    var panel = document.getElementById('controllersPanel');
+    var open = panel.classList.toggle('force-open');
+    this.textContent = 'Controllers In Range ' + (open ? '▴' : '▾');
+  });
+
+  // ---------- filters ----------
+  function activateFilter(type) {
+    activeFilter = type;
+    Array.prototype.forEach.call(filterButtons, function (b) {
+      b.classList.toggle('active', b.getAttribute('data-type') === type);
+    });
+  }
+  Array.prototype.forEach.call(filterButtons, function (btn) {
+    btn.addEventListener('click', function () {
+      activateFilter(btn.getAttribute('data-type'));
+      render();
+    });
+  });
+
+  // ---------- messages ----------
+  function soundsEnabled() {
+    try { return localStorage.getItem('tabletbridge-sounds') !== '0'; } catch (e) { return true; }
+  }
+
+  function beep() {
+    if (!soundsEnabled()) return;
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      g.gain.value = 0.15;
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      setTimeout(function () { o.stop(); ctx.close(); }, 180);
+    } catch (e) { /* autoplay may be blocked until first tap; not fatal */ }
+  }
+
+  // SELCAL means someone is specifically trying to get your attention over
+  // the radio - worth a more insistent alert than the plain new-message
+  // beep, so it doesn't get missed while glancing away from the tablet.
+  function selcalAlert() {
+    if (!soundsEnabled()) return;
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var freqs = [1200, 900, 1200, 900];
+      var startTime = ctx.currentTime;
+      freqs.forEach(function (f, i) {
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
+        o.type = 'square';
+        o.frequency.value = f;
+        g.gain.value = 0.2;
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start(startTime + i * 0.22);
+        o.stop(startTime + i * 0.22 + 0.18);
+      });
+      setTimeout(function () { ctx.close(); }, 1100);
+    } catch (e) { /* not fatal */ }
+  }
+
+  function setReplyTarget(callsign) {
+    replyTarget = callsign;
+    var chip = document.getElementById('replyModeChip');
+    var clearBtn = document.getElementById('btnClearReply');
+    if (callsign) {
+      chip.textContent = 'Private → ' + callsign;
+      chip.className = 'chip private';
+      clearBtn.style.display = '';
+    } else {
+      chip.textContent = t('radioModeChip');
+      chip.className = 'chip';
+      clearBtn.style.display = 'none';
+    }
+    document.getElementById('replyInput').focus();
+  }
+  document.getElementById('btnClearReply').addEventListener('click', function () { setReplyTarget(null); });
+
+  document.getElementById('replyModeChip').addEventListener('click', function () {
+    var entered = prompt(t('promptPrivateTo'), replyTarget || '');
+    if (entered === null) return; // cancelled
+    entered = entered.trim().toUpperCase();
+    setReplyTarget(entered.length ? entered : null);
+  });
+
+  // Some filter buttons cover more than one underlying message type.
+  var FILTER_GROUPS = { WEATHER: ['METAR', 'ATIS'] };
+  function matchesFilter(m) {
+    if (activeFilter === 'ALL') return true;
+    var group = FILTER_GROUPS[activeFilter];
+    return group ? group.indexOf(m.type) !== -1 : m.type === activeFilter;
+  }
+
+  function render() {
+    listEl.innerHTML = '';
+    var shown = allMessages.filter(matchesFilter);
+    emptyEl.style.display = shown.length === 0 ? 'block' : 'none';
+
+    shown.forEach(function (m) {
+      var div = document.createElement('div');
+      // render() runs before lastMaxId is advanced for this poll's batch
+      // (see pollMessages below), so at this point lastMaxId is still the
+      // high-water mark from the *previous* poll - anything above it here
+      // is genuinely new since we last rendered.
+      div.className = 'msg ' + m.type + (m.id > lastMaxId && !firstLoad ? ' flash' : '');
+
+      var meta = document.createElement('div');
+      meta.className = 'meta';
+
+      var tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = m.type.replace('SENT_', '');
+
+      var from = document.createElement('span');
+      from.textContent = m.from;
+
+      var time = document.createElement('span');
+      time.textContent = m.time;
+
+      meta.appendChild(tag);
+      meta.appendChild(from);
+      meta.appendChild(time);
+
+      if (m.type === 'PRIVATE') {
+        var replyBtn = document.createElement('button');
+        replyBtn.className = 'reply-link';
+        replyBtn.textContent = t('replyLink');
+        (function (sender) { replyBtn.addEventListener('click', function () { setReplyTarget(sender); }); })(m.from);
+        meta.appendChild(replyBtn);
+      }
+
+      var text = document.createElement('div');
+      text.className = 'text';
+      text.textContent = m.text;
+
+      div.appendChild(meta);
+      div.appendChild(text);
+      listEl.appendChild(div);
+    });
+  }
+
+  function pollMessages() {
+    fetch('/api/messages', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        serverDot.className = 'server-dot ok';
+
+        var newMax = lastMaxId;
+        var hasNewFromOthers = false;
+        var hasNewSelcal = false;
+        var hasChanged = data.length !== allMessages.length;
+
+        // Auto-switch the active filter to whatever the most attention-
+        // worthy new message is, so it's on screen without having to tap a
+        // filter chip yourself. Priority (highest wins if several land in
+        // the same poll): SELCAL > private message > radio call naming your
+        // own callsign > a METAR/ATIS result coming in.
+        var switchTarget = null, switchPriority = -1;
+        function considerSwitch(target, priority) {
+          if (priority > switchPriority) { switchTarget = target; switchPriority = priority; }
+        }
+
+        data.forEach(function (m) {
+          if (m.id > lastMaxId) {
+            hasChanged = true;
+            if (m.type !== 'SENT_RADIO' && m.type !== 'SENT_PRIVATE') hasNewFromOthers = true;
+            if (m.type === 'SELCAL') hasNewSelcal = true;
+
+            if (!firstLoad) {
+              if (m.type === 'SELCAL') considerSwitch('SELCAL', 3);
+              else if (m.type === 'PRIVATE') considerSwitch('PRIVATE', 2);
+              else if (m.type === 'RADIO' && myCallsign && m.text.toUpperCase().indexOf(myCallsign) !== -1) considerSwitch('RADIO', 1);
+              else if (m.type === 'METAR' || m.type === 'ATIS') considerSwitch('WEATHER', 0);
+            }
+          }
+          if (m.id > newMax) newMax = m.id;
+        });
+
+        allMessages = data.slice().reverse();
+        if (switchTarget) activateFilter(switchTarget);
+        // Rebuilding the whole list on every poll - even when nothing came
+        // in - is what was causing the messages to visibly flicker every
+        // 2 seconds on the tablet. Only re-render when something actually
+        // changed. render() itself (above) still reads the pre-update
+        // lastMaxId to know which of these are the genuinely new ones.
+        if (hasChanged || firstLoad) render();
+
+        if (!firstLoad) {
+          if (hasNewSelcal) selcalAlert();
+          else if (hasNewFromOthers) beep();
+        }
+
+        lastMaxId = newMax;
+        try { sessionStorage.setItem('tabletbridge-lastmax', String(lastMaxId)); } catch (e) { /* ignore */ }
+        firstLoad = false;
+      })
+      .catch(function () { serverDot.className = 'server-dot'; });
+  }
+
+  // ---------- status: connection + transponder ----------
+  var lastStatusSignature = null;
+  function pollStatus() {
+    fetch('/api/status', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        myCallsign = s.connected ? s.callsign : null;
+        connectedSinceMs = (s.connected && s.connectedSinceUtc) ? new Date(s.connectedSinceUtc).getTime() : null;
+        updateConnDuration();
+
+        var signature = s.connected + '|' + s.callsign + '|' + s.rememberCallsign;
+        if (signature !== lastStatusSignature) {
+          lastStatusSignature = signature;
+
+          var connPill = document.getElementById('connPill');
+          var connText = document.getElementById('connText');
+          var toggleBtn = document.getElementById('btnConnectToggle');
+          var form = document.getElementById('connectForm');
+
+          if (s.connected) {
+            connPill.className = 'conn-pill on';
+            connText.textContent = s.callsign;
+            toggleBtn.textContent = t('disconnect');
+            toggleBtn.className = 'tbtn danger';
+            form.classList.remove('open');
+          } else {
+            connPill.className = 'conn-pill off';
+            connText.textContent = t('disconnected');
+            toggleBtn.textContent = t('connect');
+            toggleBtn.className = 'tbtn primary';
+          }
+        }
+
+        if (!connectFormPrefilled) {
+          document.getElementById('fCallsign').value = s.lastCallsign || '';
+          document.getElementById('fTypeCode').value = s.lastTypeCode || '';
+          document.getElementById('fSelcal').value = s.lastSelcal || '';
+          populateAircraftTypes(s.lastTypeCode || null);
+          connectFormPrefilled = true;
+        }
+
+        var rememberBtn = document.getElementById('btnRememberCallsign');
+        if (!rememberBtnDirty) {
+          rememberBtn.textContent = s.rememberCallsign ? t('on') : t('off');
+          rememberBtn.className = 'tbtn' + (s.rememberCallsign ? ' on' : '');
+        }
+      })
+      .catch(function () { /* status is polled alongside messages; ignore isolated misses */ });
+  }
+
+  // ---------- controllers in range ----------
+  var lastControllersSignature = null;
+  function renderControllers(list) {
+    // Same fix as the message list: this used to rebuild the whole panel
+    // every poll regardless of whether anything changed, which flickered.
+    var signature = list.map(function (c) { return c.callsign + '|' + c.frequency; }).sort().join(',');
+    if (signature === lastControllersSignature) return;
+    lastControllersSignature = signature;
+
+    var byCategory = {};
+    list.forEach(function (c) {
+      (byCategory[c.category] = byCategory[c.category] || []).push(c);
+    });
+
+    var container = document.getElementById('controllersList');
+    container.innerHTML = '';
+
+    CATEGORY_LABELS.forEach(function (pair) {
+      var key = pair[0], label = pair[1];
+      var items = byCategory[key] || [];
+      if (key === 'OTHER' && items.length === 0) return; // fallback bucket: only show if non-empty
+
+      var heading = document.createElement('div');
+      heading.className = 'ctl-category';
+      heading.textContent = label;
+      container.appendChild(heading);
+
+      if (items.length === 0) {
+        var empty = document.createElement('div');
+        empty.className = 'ctl-empty';
+        empty.textContent = '—';
+        container.appendChild(empty);
+        return;
+      }
+
+      items.sort(function (a, b) { return a.callsign.localeCompare(b.callsign); }).forEach(function (c) {
+        var row = document.createElement('div');
+        row.className = 'ctl-row';
+        var cs = document.createElement('span');
+        cs.textContent = c.callsign;
+        var freq = document.createElement('span');
+        freq.className = 'freq';
+        freq.textContent = c.frequency;
+        row.appendChild(cs);
+        row.appendChild(freq);
+        container.appendChild(row);
+      });
+    });
+  }
+
+  function pollControllers() {
+    fetch('/api/controllers', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(renderControllers)
+      .catch(function () { /* keep last known list on a transient miss */ });
+  }
+
+  // ---------- nearby traffic ----------
+  var lastTrafficSignature = null;
+  function renderTraffic(list) {
+    var signature = list.map(function (a) { return a.callsign + '|' + a.altitude + '|' + a.heading + '|' + a.speed; }).sort().join(',');
+    if (signature === lastTrafficSignature) return;
+    lastTrafficSignature = signature;
+
+    var container = document.getElementById('trafficList');
+    container.innerHTML = '';
+    document.getElementById('trafficEmpty').style.display = list.length === 0 ? 'block' : 'none';
+
+    list.slice().sort(function (a, b) { return a.callsign.localeCompare(b.callsign); }).forEach(function (a) {
+      var row = document.createElement('div');
+      row.className = 'traffic-row';
+
+      var info = document.createElement('div');
+      var cs = document.createElement('div');
+      cs.className = 'callsign';
+      cs.textContent = a.callsign + (a.typeCode ? ' · ' + a.typeCode : '');
+      var details = document.createElement('div');
+      details.className = 'details';
+      details.textContent = a.altitude + ' ft · ' + a.heading + '° · ' + a.speed + ' kt';
+      info.appendChild(cs);
+      info.appendChild(details);
+
+      var pmBtn = document.createElement('button');
+      pmBtn.className = 'tbtn small';
+      pmBtn.textContent = 'PM';
+      (function (callsign) {
+        pmBtn.addEventListener('click', function () {
+          setReplyTarget(callsign);
+          activateTab('messages');
+          document.getElementById('replyInput').focus();
+        });
+      })(a.callsign);
+
+      row.appendChild(info);
+      row.appendChild(pmBtn);
+      container.appendChild(row);
+    });
+  }
+
+  function pollTraffic() {
+    fetch('/api/traffic', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(renderTraffic)
+      .catch(function () { /* keep last known list on a transient miss */ });
+  }
+
+  // Only one of the three slide-down panels (connect/weather/settings) makes
+  // sense open at a time - closing the others whenever one opens keeps the
+  // layout from getting cluttered.
+  var ALL_PANELS = ['connectForm', 'weatherPanel', 'settingsPanel'];
+  function togglePanel(id) {
+    ALL_PANELS.forEach(function (p) {
+      if (p !== id) document.getElementById(p).classList.remove('open');
+    });
+    document.getElementById(id).classList.toggle('open');
+  }
+
+  document.getElementById('btnConnectToggle').addEventListener('click', function () {
+    var connected = document.getElementById('connPill').classList.contains('on');
+    if (connected) {
+      if (confirm(t('confirmDisconnect'))) postForm('/api/disconnect', {});
+    } else {
+      togglePanel('connectForm');
+    }
+  });
+
+  document.getElementById('btnConnectSubmit').addEventListener('click', function () {
+    postForm('/api/connect', {
+      callsign: document.getElementById('fCallsign').value,
+      typeCode: document.getElementById('fTypeCode').value,
+      selcal: document.getElementById('fSelcal').value
+    });
+  });
+
+  document.getElementById('btnWeather').addEventListener('click', function () {
+    togglePanel('weatherPanel');
+  });
+
+  document.getElementById('btnRequestMetar').addEventListener('click', function () {
+    postForm('/api/metar', { station: document.getElementById('fMetarStation').value });
+  });
+  document.getElementById('fMetarStation').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    document.getElementById('btnRequestMetar').click();
+    this.blur(); // Enter doesn't move focus away like tapping the button
+                 // does, so without this the on-screen keyboard stays open.
+  });
+
+  document.getElementById('btnRequestAtis').addEventListener('click', function () {
+    postForm('/api/atis', { callsign: document.getElementById('fAtisCallsign').value });
+  });
+  document.getElementById('fAtisCallsign').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    document.getElementById('btnRequestAtis').click();
+    this.blur();
+  });
+
+  document.getElementById('btnSettings').addEventListener('click', function () {
+    togglePanel('settingsPanel');
+  });
+
+  document.getElementById('btnRememberCallsign').addEventListener('click', function () {
+    var newState = !this.classList.contains('on');
+    rememberBtnDirty = true;
+    this.textContent = newState ? t('on') : t('off');
+    this.className = 'tbtn' + (newState ? ' on' : '');
+    postForm('/api/settings', { rememberCallsign: newState ? '1' : '0' }).then(function () {
+      rememberBtnDirty = false;
+    });
+  });
+
+  function refreshSoundsToggle() {
+    var btn = document.getElementById('btnSoundsToggle');
+    var on = soundsEnabled();
+    btn.textContent = on ? t('on') : t('off');
+    btn.className = 'tbtn' + (on ? ' on' : '');
+  }
+  refreshSoundsToggle();
+  document.getElementById('btnSoundsToggle').addEventListener('click', function () {
+    var newState = !soundsEnabled();
+    try { localStorage.setItem('tabletbridge-sounds', newState ? '1' : '0'); } catch (e) { /* ignore */ }
+    refreshSoundsToggle();
+  });
+
+  document.getElementById('btnLangCs').addEventListener('click', function () { setLang('cs'); });
+  document.getElementById('btnLangEn').addEventListener('click', function () { setLang('en'); });
+
+  // ---------- keep the screen awake ----------
+  // Needs a "secure context" (HTTPS, or localhost) per spec - on a plain
+  // http://<lan-ip> address, as this normally is, the browser may simply not
+  // expose the API at all. Feature-detected and silently skipped if so; see
+  // the README for the reliable fallback (disable the tablet's own
+  // auto-lock in its system settings).
+  var wakeLock = null;
+  function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    navigator.wakeLock.request('screen').then(function (lock) {
+      wakeLock = lock;
+    }).catch(function () { /* e.g. battery saver mode; not fatal */ });
+  }
+  requestWakeLock();
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+
+  // ---------- reply bar ----------
+  function sendReply() {
+    var input = document.getElementById('replyInput');
+    var text = input.value.trim();
+    if (!text) return;
+
+    var data = replyTarget ? { mode: 'private', to: replyTarget, message: text } : { mode: 'radio', message: text };
+    postForm('/api/send', data);
+    input.value = '';
+  }
+  document.getElementById('btnSend').addEventListener('click', sendReply);
+  document.getElementById('replyInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendReply(); });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.qr-btn'), function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('replyInput').value = btn.getAttribute('data-phrase');
+      sendReply();
+    });
+  });
+
+  applyTranslations(); // also performs the initial pollStatus() call
+  pollMessages();
+  pollControllers();
+  pollTraffic();
+  setInterval(pollMessages, 2000);
+  setInterval(pollStatus, 2000);
+  setInterval(pollControllers, 3000);
+  setInterval(pollTraffic, 3000);
+})();
+</script>
+</body>
+</html>

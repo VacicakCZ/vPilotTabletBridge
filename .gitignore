@@ -1,0 +1,14 @@
+bin/
+obj/
+*.user
+
+# Third-party assembly (vPilot's own plugin API) - not ours to redistribute.
+# See README "Setting up a fresh clone" for how to get it locally.
+lib/*.dll
+lib/*.xml
+
+# Runtime artifacts vPilot writes next to the deployed plugin DLL; never
+# actually inside this repo, but excluded defensively in case a stray copy
+# ends up here from local testing.
+TabletBridge-debug.log
+TabletBridge-connect.ini
