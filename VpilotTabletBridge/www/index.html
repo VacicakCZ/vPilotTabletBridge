@@ -224,6 +224,7 @@
     border-radius: 8px; padding: 8px 16px; font-size: 13px; z-index: 40;
     display: none;
   }
+  .toast.success { background: #14351f; color: #b9f5cf; border-color: var(--ok); }
 
   /* narrow screens: stack, collapse the controllers list by default */
   @media (max-width: 820px) {
@@ -1044,8 +1045,9 @@
   }
   setInterval(updateConnDuration, 30000);
 
-  function showToast(text) {
+  function showToast(text, success) {
     toastEl.textContent = text;
+    toastEl.classList.toggle('success', !!success);
     toastEl.style.display = 'block';
     setTimeout(function () { toastEl.style.display = 'none'; }, 3500);
   }
@@ -1824,6 +1826,13 @@
     renderFriends();
     fetchVatsimData(); // check the new friend's status right away instead of waiting up to 2 minutes
   });
+  ['fFriendCid', 'fFriendLabel'].forEach(function (id) {
+    document.getElementById(id).addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      document.getElementById('btnAddFriend').click();
+      this.blur();
+    });
+  });
 
   // ---------- shared VATSIM data feed fetch (own CID + friends' CIDs) ----------
   // One fetch serves both features rather than hitting data.vatsim.net twice
@@ -1870,8 +1879,13 @@
   document.getElementById('btnVatsimCidSave').addEventListener('click', function () {
     var cid = document.getElementById('fVatsimCid').value.trim();
     try { localStorage.setItem('tabletbridge-vatsim-cid', cid); } catch (e) { /* ignore */ }
-    showToast(t(cid ? 'cidSaved' : 'cidCleared'));
+    showToast(t(cid ? 'cidSaved' : 'cidCleared'), true);
     fetchVatsimData();
+  });
+  document.getElementById('fVatsimCid').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    document.getElementById('btnVatsimCidSave').click();
+    this.blur();
   });
   renderFriends();
   fetchVatsimData();
