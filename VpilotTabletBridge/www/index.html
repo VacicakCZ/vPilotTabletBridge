@@ -1646,8 +1646,12 @@
       return;
     }
     container.hidden = false;
-    [['fplDeparture', lastFpl.departure], ['fplArrival', lastFpl.arrival]].forEach(function (pair) {
-      var icao = pair[1];
+    // 'D' for the departure button (accepts the combined ATIS or a split
+    // D_ATIS, never A_ATIS), 'A' for the arrival button (combined or
+    // A_ATIS, never D_ATIS) - matches the exact candidate callsigns
+    // RequestAtis itself tries for a bare ICAO (see Actions.cs).
+    [['fplDeparture', lastFpl.departure, 'D'], ['fplArrival', lastFpl.arrival, 'A']].forEach(function (pair) {
+      var icao = pair[1], dirLetter = pair[2];
       if (!icao) return;
       var btn = document.createElement('button');
       btn.className = 'tbtn';
@@ -1657,11 +1661,11 @@
         // (using the Controllers In Range list, already polled every few
         // seconds) - it's the fuller picture (runway, QNH, wind, etc. all
         // in one) and METAR would just be read again inside it anyway.
-        // Only fall back to requesting METAR when no ATIS is online there.
+        // Only fall back to requesting METAR when no matching ATIS is online.
         var atisStations = lastControllersList.filter(function (c) {
-          // "icao + '_'" rather than a bare prefix check - otherwise a
-          // callsign like "EDDFX_ATIS" would falsely match airport "EDDF".
-          return c.category === 'ATIS' && c.callsign.indexOf(icao + '_') === 0;
+          if (c.category !== 'ATIS') return false;
+          if (c.callsign === icao + '_ATIS') return true; // combined covers both directions
+          return c.callsign === icao + '_' + dirLetter + '_ATIS';
         });
         if (atisStations.length > 0) {
           atisStations.forEach(function (c) { postForm('/api/atis', { callsign: c.callsign }); });
