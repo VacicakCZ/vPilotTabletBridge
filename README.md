@@ -50,6 +50,96 @@ real state, which wasn't worth the confusion.
 Everything is self-contained: no internet access, no external libraries,
 just the plugin DLL sitting in vPilot's `Plugins` folder.
 
+## User guide
+
+What each part of the tablet page actually does, once it's up and running
+on `http://<your-pc-lan-ip>:8686/`.
+
+### Connecting
+
+Tap **Connect** in the top-left. A form drops down for callsign, aircraft
+type and an optional SELCAL code. The aircraft type field suggests ICAO
+type designators as you type (e.g. `A320`, `B738`) - vPilot needs the ICAO
+type, not an IATA airline code. Both fields remember what you used last
+time and pre-fill automatically; the aircraft type box also puts your last
+one at the top of its suggestion list. Whether the callsign specifically
+gets remembered can be turned off in Settings (see below) - useful if
+different people fly from the same tablet/cockpit.
+
+Once connected, the same button becomes **Disconnect** (asks for
+confirmation first), the pill next to it turns green and shows your
+callsign plus how long you've been connected, updated every 30 seconds.
+
+### Reading messages
+
+The **Messages** tab lists everything: radio traffic, private messages,
+broadcasts, SELCAL alerts, METAR/ATIS results, and your own connect/
+disconnect notices - color-coded by type. The filter chips above the list
+(All / Radio / Private / SELCAL / System / METAR/ATIS) narrow it down. The
+active filter switches itself automatically to whatever the most relevant
+new arrival is - SELCAL first, then a private message, then a radio call
+that mentions your own callsign, then a METAR/ATIS result - so you don't
+have to go looking for it. A new arrival also plays a short beep (a more
+insistent double-tone specifically for SELCAL), unless sounds are turned
+off in Settings.
+
+### Replying
+
+The bar at the bottom of Messages sends on the **current radio frequency**
+by default - shown as the "Rádio" chip. Three quick-reply buttons (Wilco /
+Roger / Standby) send that word immediately, respecting whatever mode
+you're currently in.
+
+To send a **private message**: either tap "Odpovědět" under an incoming
+private message (targets that sender automatically), tap a callsign in the
+Traffic tab's PM button, or tap the mode chip itself and type in any
+callsign directly - useful for starting a conversation with someone who
+hasn't messaged you first. Tap the ✕ next to the chip to go back to radio
+mode.
+
+### Weather - METAR and ATIS
+
+The ☁ button in the toolbar opens a small form. Both fields just need an
+airport's ICAO code (e.g. `LKPR`) - for ATIS, `_ATIS` is appended
+automatically, and if the airport splits it into separate Arrival and
+Departure ATIS, both are requested at once; whichever is actually staffed
+answers, the other is silently ignored. Results land in the message log
+under the "METAR/ATIS" filter. Both fields also accept a specific
+callsign typed in full (e.g. `LKPR_A_ATIS`) if you already know it.
+
+### Traffic
+
+The **Traffic** tab lists nearby aircraft as vPilot currently sees them -
+callsign, type, altitude, heading, speed. There's a **PM** button on each
+row that jumps straight to Messages with a private reply already addressed
+to that callsign. Note: this list isn't sorted by actual distance from
+you - vPilot's plugin API doesn't expose your own aircraft's position, so
+there's no way to compute a real distance or bearing here. It's simply
+whatever vPilot itself is currently modeling as traffic, which vPilot
+already limits to nearby aircraft before these ever reach a plugin.
+
+### Notes
+
+A plain scratchpad on the **Notes** tab, saved locally in that tablet's
+browser only - it doesn't sync anywhere, including back to the PC.
+
+### Settings
+
+The ⚙ button opens:
+- **Remember callsign between connections** - on by default.
+- **Sounds for new messages** - on by default; a per-device preference,
+  doesn't affect other tablets/browsers pointed at the same plugin.
+- **Language** - CS/EN, switches the whole interface instantly. The
+  Controllers In Range panel and its 8 categories stay in English
+  regardless, matching standard ATC phraseology and vPilot's own window.
+
+### Controllers In Range
+
+The left-hand panel (collapsible on narrow/portrait screens via the button
+below it) mirrors vPilot's own "Controllers In Range" list: Center,
+Approach/Departure, Tower, Ground, Ramp, Clearance Delivery, ATIS,
+Observers, each showing who's online and their frequency.
+
 ## Status
 
 Built and already deployed to your local vPilot install
