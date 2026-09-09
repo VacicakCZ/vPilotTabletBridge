@@ -152,9 +152,12 @@ clouds at 3500 feet" rather than reading "27015G25KT SCT035" as-is.
 Standalone letters (an ATIS information identifier, a spelled-out
 designator) are read using the phonetic alphabet ("information Delta"),
 while glued groups like `QNH1013`, `T12` and `DM05` are split out and their
-digits read individually. The button turns into a ⏹ while speaking - tap it
-again to stop the playback. It's a best-effort converter, not a certified
-parser, so unusual formats may come out a bit literal. This is deliberately
+digits read individually. Both also lead with the airport's full name where
+it can be resolved (e.g. "Frankfurt Main Airport" for `EDDF`), looked up
+from a bundled offline table covering essentially every ICAO-coded airport
+worldwide - no internet access needed. The button turns into a ⏹ while
+speaking - tap it again to stop the playback. It's a best-effort converter,
+not a certified parser, so unusual formats may come out a bit literal. This is deliberately
 *not* offered for radio/private messages - those already have real voice
 traffic going on via Audio for VATSIM, and having the tablet talk over that
 too would just be noise.
