@@ -384,3 +384,9 @@ while running.)
   Fine for a home network; don't expose the port beyond your router.
 - The connect form remembers the last callsign/aircraft type/SELCAL you
   used, saved to `TabletBridge-connect.ini` next to the DLL.
+
+## License
+
+MIT - see [LICENSE](LICENSE). Does not cover
+`RossCarlson.Vatsim.Vpilot.Plugins.dll`, which isn't part of this project
+and isn't included in the repo (see "Setting up a fresh clone" above).
