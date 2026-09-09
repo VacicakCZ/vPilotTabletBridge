@@ -1741,6 +1741,7 @@
   }
 
   var lastVatsimPilots = []; // the feed's "pilots" array from the most recent successful fetch
+  var lastVatsimControllers = []; // the feed's "controllers" array - a friend staffing ATC is still online
 
   function renderFriends() {
     var container = document.getElementById('friendsList');
@@ -1750,6 +1751,8 @@
 
     friends.forEach(function (f) {
       var pilot = lastVatsimPilots.find(function (p) { return String(p.cid) === f.cid; });
+      var controller = pilot ? null : lastVatsimControllers.find(function (c) { return String(c.cid) === f.cid; });
+      var callsign = pilot ? pilot.callsign : (controller ? controller.callsign : null);
 
       var row = document.createElement('div');
       row.className = 'traffic-row';
@@ -1764,6 +1767,8 @@
         var fp = pilot.flight_plan;
         var route = (fp && fp.departure) ? (fp.departure + ' → ' + (fp.arrival || '?')) : t('friendNoFpl');
         details.textContent = pilot.callsign + ' · ' + route;
+      } else if (controller) {
+        details.textContent = controller.callsign + ' · ATC · ' + controller.frequency;
       } else {
         details.textContent = t('friendOffline');
       }
@@ -1775,13 +1780,13 @@
       btnGroup.style.display = 'flex';
       btnGroup.style.gap = '6px';
 
-      if (pilot) {
+      if (callsign) {
         var pmBtn = document.createElement('button');
         pmBtn.className = 'tbtn small';
         pmBtn.textContent = 'PM';
-        (function (callsign) {
-          pmBtn.addEventListener('click', function () { openPmConversation(callsign); });
-        })(pilot.callsign);
+        (function (cs) {
+          pmBtn.addEventListener('click', function () { openPmConversation(cs); });
+        })(callsign);
         btnGroup.appendChild(pmBtn);
       }
 
@@ -1829,6 +1834,7 @@
     if (!cid && !hasFriends) {
       lastFpl = null;
       lastVatsimPilots = [];
+      lastVatsimControllers = [];
       renderFplButtons();
       renderFriends();
       return;
@@ -1837,6 +1843,7 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         lastVatsimPilots = data.pilots || [];
+        lastVatsimControllers = data.controllers || [];
         if (cid) {
           var entry = lastVatsimPilots.concat(data.prefiles || [])
             .find(function (p) { return String(p.cid) === cid && p.flight_plan; });

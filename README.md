@@ -195,11 +195,13 @@ already limits to nearby aircraft before these ever reach a plugin.
 
 The **Friends** tab lets you track specific people by VATSIM CID rather
 than whoever happens to be nearby - add a CID (and an optional name) and,
-whenever they're online, their current callsign and route (departure →
-arrival, from their filed flight plan) show up automatically, with a
-**PM** button to jump straight into a conversation with them. Someone not
-currently connected shows as "Offline" - there's no way to message them
-without a live callsign to send to. Sourced from the same VATSIM data
+whenever they're online, their current callsign shows up automatically
+with a **PM** button to jump straight into a conversation with them. If
+they're flying, their route (departure → arrival, from their filed
+flight plan) shows too; if they're controlling, it shows their frequency
+instead - either way counts as online. Someone not currently connected
+either way shows as "Offline" - there's no way to message them without a
+live callsign to send to. Sourced from the same VATSIM data
 feed as the flight-plan buttons in Weather, refreshed on the same
 2-minute schedule (one fetch serves both), and needs the same tablet-side
 internet access. Friends are stored locally on that tablet, like every
