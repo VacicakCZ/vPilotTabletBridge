@@ -1452,7 +1452,10 @@
 
   // ---------- controllers in range ----------
   var lastControllersSignature = null;
+  var lastControllersList = []; // kept up to date even when the render below is skipped as unchanged
   function renderControllers(list) {
+    lastControllersList = list;
+
     // Same fix as the message list: this used to rebuild the whole panel
     // every poll regardless of whether anything changed, which flickered.
     var signature = list.map(function (c) { return c.callsign + '|' + c.frequency; }).sort().join(',');
@@ -1650,8 +1653,21 @@
       btn.className = 'tbtn';
       btn.textContent = t(pair[0]) + ': ' + icao;
       btn.addEventListener('click', function () {
-        postForm('/api/metar', { station: icao });
-        postForm('/api/atis', { callsign: icao });
+        // Prefer ATIS when the airport actually has one staffed right now
+        // (using the Controllers In Range list, already polled every few
+        // seconds) - it's the fuller picture (runway, QNH, wind, etc. all
+        // in one) and METAR would just be read again inside it anyway.
+        // Only fall back to requesting METAR when no ATIS is online there.
+        var atisStations = lastControllersList.filter(function (c) {
+          // "icao + '_'" rather than a bare prefix check - otherwise a
+          // callsign like "EDDFX_ATIS" would falsely match airport "EDDF".
+          return c.category === 'ATIS' && c.callsign.indexOf(icao + '_') === 0;
+        });
+        if (atisStations.length > 0) {
+          atisStations.forEach(function (c) { postForm('/api/atis', { callsign: c.callsign }); });
+        } else {
+          postForm('/api/metar', { station: icao });
+        }
         activateTab('messages');
         activateFilter('WEATHER');
       });

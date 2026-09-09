@@ -149,8 +149,9 @@ request is confirmed sent successfully.
 If a VATSIM CID is set in Settings, this panel also shows one-tap buttons
 for your currently filed flight plan's departure and destination airports
 (pulled from VATSIM's public data feed - vPilot's own plugin API doesn't
-expose flight plan data at all) - tapping one requests both METAR and
-ATIS for that airport at once. Entirely optional: leave the CID field
+expose flight plan data at all) - tapping one requests ATIS if that
+airport currently has one staffed (checked against the Controllers In
+Range list), or METAR otherwise. Entirely optional: leave the CID field
 blank and the buttons never appear. Unlike everything else in this
 plugin, this one feature needs the tablet itself (not just the PC running
 vPilot) to have general internet access, since it talks to VATSIM's feed
