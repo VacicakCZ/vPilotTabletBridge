@@ -132,11 +132,6 @@
     border-radius: 20px; padding: 6px 12px; font-size: 12px; cursor: pointer;
   }
   .filters button.active { background: #2a3644; border-color: #3d4d60; }
-  .msg-search-row { padding: 8px 12px 0; }
-  .msg-search-row input {
-    width: 100%; box-sizing: border-box; background: #0e141b; border: 1px solid #2a3644; color: var(--text);
-    border-radius: 8px; padding: 8px 10px; font-size: 14px;
-  }
 
   .list-scroll { flex: 1; overflow-y: auto; padding: 8px 12px; }
 
@@ -254,11 +249,12 @@
   <header class="toolbar">
     <div class="toolbar-left">
       <button class="tbtn primary" id="btnConnectToggle" data-i18n="connect">Připojit</button>
+      <button class="tbtn" id="btnModeCToggle" data-i18n="modeCBtn" data-i18n-title="modeCTitle" title="Mode C je jednosměrný příkaz - vPilot pluginům neříká skutečný stav transpondéru.">Mode C</button>
+      <button class="tbtn" id="btnIdent" data-i18n="identBtn">IDENT</button>
     </div>
     <div class="toolbar-right">
       <span class="conn-pill off" id="connPill"><span class="dot"></span><span id="connText" data-i18n="disconnected">Odpojeno</span><span id="connDuration" class="conn-duration"></span></span>
       <span class="server-dot" id="serverDot" data-i18n-title="serverStatusTitle" title="Stav vlastního serveru"></span>
-      <button class="tbtn icon-btn" id="btnXpdr" data-i18n-title="xpdrTitle" title="Transpondér" aria-label="Transpondér">📡</button>
       <button class="tbtn icon-btn" id="btnWeather" title="METAR / ATIS" aria-label="METAR / ATIS">☁</button>
       <button class="tbtn icon-btn" id="btnSettings" data-i18n-title="settingsTitle" title="Nastavení" aria-label="Nastavení">⚙</button>
     </div>
@@ -287,17 +283,6 @@
     <div class="row row2">
       <input type="text" id="fAtisCallsign" data-i18n-placeholder="atisPlaceholder" placeholder="ATIS - ICAO letiště (např. LKPR)" autocapitalize="characters">
       <button class="tbtn" id="btnRequestAtis">ATIS</button>
-    </div>
-  </div>
-
-  <div class="connect-form" id="xpdrPanel">
-    <div class="hint" data-i18n="xpdrHint">Ovládání transpondéru. vPilot pluginům nedává zpět aktuální stav, takže tlačítka jsou samostatné akce, ne přepínač.</div>
-    <div class="row">
-      <button class="tbtn" id="btnModeCOn" data-i18n="modeCOnBtn">Mode C zapnout</button>
-      <button class="tbtn" id="btnModeCOff" data-i18n="modeCOffBtn">Mode C vypnout</button>
-    </div>
-    <div class="row row2">
-      <button class="tbtn primary" id="btnIdent" data-i18n="identBtn">IDENT</button>
     </div>
   </div>
 
@@ -355,9 +340,6 @@
           <button data-type="FORME" data-i18n="filterForMe">Pro mě</button>
           <button data-type="SYSTEM" data-i18n="filterSystem">Systém</button>
           <button data-type="WEATHER">METAR/ATIS</button>
-        </div>
-        <div class="msg-search-row">
-          <input type="text" id="msgSearch" data-i18n-placeholder="msgSearchPlaceholder" placeholder="Hledat v historii…">
         </div>
         <div class="list-scroll">
           <div id="list"></div>
@@ -451,9 +433,9 @@
     cs: {
       connect: 'Připojit', disconnect: 'Odpojit', disconnected: 'Odpojeno',
       serverStatusTitle: 'Stav vlastního serveru', settingsTitle: 'Nastavení',
-      xpdrTitle: 'Transpondér',
-      xpdrHint: 'Ovládání transpondéru. vPilot pluginům nedává zpět aktuální stav, takže tlačítka jsou samostatné akce, ne přepínač.',
-      modeCOnBtn: 'Mode C zapnout', modeCOffBtn: 'Mode C vypnout', identBtn: 'IDENT',
+      modeCBtn: 'Mode C',
+      modeCTitle: 'Mode C je jednosměrný příkaz - vPilot pluginům neříká skutečný stav transpondéru.',
+      identBtn: 'IDENT',
       connectHint: 'Volací znak, typ letadla (ICAO) a volitelně SELCAL - naposledy použité se předvyplní.',
       callsignPlaceholder: 'Volací znak (např. OK1ABC)',
       typeCodePlaceholder: 'Typ letadla (ICAO kód, např. A320)',
@@ -488,7 +470,6 @@
       trafficHint: 'Provoz, který právě modeluje vPilot. Skutečná vzdálenost od vás bohužel není k dispozici - vPilot ji pluginům nedává.',
       trafficEmpty: 'Žádný okolní provoz.',
       filterAll: 'Vše', filterSystem: 'Systém', filterForMe: 'Pro mě',
-      msgSearchPlaceholder: 'Hledat v historii…',
       emptyMessages: 'Zatím žádné zprávy.',
       msgCmdHint: 'Tip: napište .msg VOLAČKA zpráva pro private zprávu',
       replyPlaceholder: 'Napište zprávu…',
@@ -505,9 +486,9 @@
     en: {
       connect: 'Connect', disconnect: 'Disconnect', disconnected: 'Disconnected',
       serverStatusTitle: 'Own server status', settingsTitle: 'Settings',
-      xpdrTitle: 'Transponder',
-      xpdrHint: 'Transponder controls. vPilot doesn\'t give plugins its current state back, so these are one-shot actions, not a toggle.',
-      modeCOnBtn: 'Mode C on', modeCOffBtn: 'Mode C off', identBtn: 'IDENT',
+      modeCBtn: 'Mode C',
+      modeCTitle: 'Mode C is a one-shot command - vPilot doesn\'t tell plugins the transponder\'s actual state.',
+      identBtn: 'IDENT',
       connectHint: 'Callsign, aircraft type (ICAO) and optional SELCAL - the last values used are pre-filled.',
       callsignPlaceholder: 'Callsign (e.g. OK1ABC)',
       typeCodePlaceholder: 'Aircraft type (ICAO code, e.g. A320)',
@@ -542,7 +523,6 @@
       trafficHint: 'Traffic currently modeled by vPilot. Real distance from you isn\'t available - vPilot doesn\'t give plugins that.',
       trafficEmpty: 'No nearby traffic.',
       filterAll: 'All', filterSystem: 'System', filterForMe: 'For me',
-      msgSearchPlaceholder: 'Search history…',
       emptyMessages: 'No messages yet.',
       msgCmdHint: 'Tip: type .msg CALLSIGN message to send a private message',
       replyPlaceholder: 'Type a message…',
@@ -1333,30 +1313,19 @@
   function matchesFilter(m) {
     if (m.type === 'PRIVATE' || m.type === 'SENT_PRIVATE') return false;
     if (activeFilter === 'FORME') {
-      // Same definition pollMessages already uses to decide whether to
-      // auto-switch here: a SELCAL alert is inherently personal, a radio
-      // call only counts if it actually names your callsign.
-      return m.type === 'SELCAL' || (m.type === 'RADIO' && myCallsign && m.text.toUpperCase().indexOf(myCallsign) !== -1);
+      // Radio calls that actually name your callsign - not a text search,
+      // just this one filter. SELCAL already has its own dedicated filter,
+      // so it's deliberately not folded in here too.
+      return m.type === 'RADIO' && myCallsign && m.text.toUpperCase().indexOf(myCallsign) !== -1;
     }
     if (activeFilter === 'ALL') return true;
     var group = FILTER_GROUPS[activeFilter];
     return group ? group.indexOf(m.type) !== -1 : m.type === activeFilter;
   }
 
-  var msgSearchQuery = '';
-  function matchesSearch(m) {
-    if (!msgSearchQuery) return true;
-    var q = msgSearchQuery.toLowerCase();
-    return (m.text && m.text.toLowerCase().indexOf(q) !== -1) || (m.from && m.from.toLowerCase().indexOf(q) !== -1);
-  }
-  document.getElementById('msgSearch').addEventListener('input', function () {
-    msgSearchQuery = this.value.trim();
-    render();
-  });
-
   function render() {
     listEl.innerHTML = '';
-    var shown = allMessages.filter(matchesFilter).filter(matchesSearch);
+    var shown = allMessages.filter(matchesFilter);
     emptyEl.style.display = shown.length === 0 ? 'block' : 'none';
 
     shown.forEach(function (m) {
@@ -1662,7 +1631,7 @@
   // Only one of the three slide-down panels (connect/weather/settings) makes
   // sense open at a time - closing the others whenever one opens keeps the
   // layout from getting cluttered.
-  var ALL_PANELS = ['connectForm', 'weatherPanel', 'xpdrPanel', 'settingsPanel'];
+  var ALL_PANELS = ['connectForm', 'weatherPanel', 'settingsPanel'];
   function togglePanel(id) {
     ALL_PANELS.forEach(function (p) {
       if (p !== id) document.getElementById(p).classList.remove('open');
@@ -1691,14 +1660,16 @@
     togglePanel('weatherPanel');
   });
 
-  document.getElementById('btnXpdr').addEventListener('click', function () {
-    togglePanel('xpdrPanel');
-  });
-  document.getElementById('btnModeCOn').addEventListener('click', function () {
-    postForm('/api/modec', { on: '1' });
-  });
-  document.getElementById('btnModeCOff').addEventListener('click', function () {
-    postForm('/api/modec', { on: '0' });
+  // Mode C shows green while "on" the way vPilot's own app does, but this
+  // is only ever what this tablet last told it, never confirmed - vPilot's
+  // plugin API has no getter for the transponder's actual state. Resets to
+  // "off" on every page load rather than persisting a guess across
+  // sessions, since there's no way to re-sync it against reality anyway.
+  var modeCOn = false;
+  document.getElementById('btnModeCToggle').addEventListener('click', function () {
+    modeCOn = !modeCOn;
+    this.classList.toggle('on', modeCOn);
+    postForm('/api/modec', { on: modeCOn ? '1' : '0' });
   });
   document.getElementById('btnIdent').addEventListener('click', function () {
     postForm('/api/ident', {});

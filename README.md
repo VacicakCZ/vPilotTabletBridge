@@ -102,10 +102,9 @@ The **Messages** tab lists radio traffic, broadcasts, SELCAL alerts,
 METAR/ATIS results, and your own connect/disconnect notices - color-coded
 by type. Private messages don't appear here - see "Private conversations"
 below. The filter chips above the list (All / Radio / SELCAL / System /
-METAR/ATIS, plus **For me** - SELCAL alerts and radio calls that actually
-name your callsign, nothing else) narrow it down further, and a search
-box above the list filters by text (message content or sender) on top of
-whichever filter is active. New arrivals switch things automatically so
+METAR/ATIS, plus **For me** - radio calls that actually name your
+callsign, nothing else; SELCAL already has its own filter) narrow it
+down further. New arrivals switch things automatically so
 you don't have to go looking for them: SELCAL takes you to Messages with
 the SELCAL filter, a private message jumps straight to its own
 conversation in the Private tab, a radio call that mentions your own
@@ -219,10 +218,12 @@ the tablet.
 
 ### Transponder
 
-The 📡 button opens Mode C on/off and an IDENT button. vPilot's plugin API
-doesn't report the transponder's actual current state back to plugins, so
-these are one-shot actions rather than a toggle that reflects reality -
-tapping "Mode C on" sends that command whether or not it was already on.
+**Mode C** and **IDENT** sit right in the toolbar next to Connect, like in
+vPilot's own app. Mode C turns green while "on" - but that only ever means
+what this tablet last told it, never a confirmed state, since vPilot's
+plugin API doesn't report the transponder's actual state back to plugins.
+It resets to "off" on every page load rather than persisting a guess
+across sessions.
 
 ### Notes
 
