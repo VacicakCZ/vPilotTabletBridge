@@ -184,6 +184,9 @@ The ⚙ button opens:
 - **Remember callsign between connections** - on by default.
 - **Sounds for new messages** - on by default; a per-device preference,
   doesn't affect other tablets/browsers pointed at the same plugin.
+- **Read airport name for METAR/ATIS** - on by default, also per-device;
+  turns off the airport-name lookup described above if you'd rather hear
+  the bare ICAO code.
 - **Language** - CS/EN, switches the whole interface instantly. The
   Controllers In Range panel and its 8 categories stay in English
   regardless, matching standard ATC phraseology and vPilot's own window.

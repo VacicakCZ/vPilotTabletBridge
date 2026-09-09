@@ -286,6 +286,10 @@
       <button class="tbtn" id="btnSoundsToggle">Zapnuto</button>
     </div>
     <div class="settings-row">
+      <span data-i18n="airportNamesLabel">Přečíst jméno letiště u METAR/ATIS</span>
+      <button class="tbtn" id="btnAirportNamesToggle">Zapnuto</button>
+    </div>
+    <div class="settings-row">
       <span data-i18n="langLabel">Jazyk</span>
       <div style="display:flex; gap:6px;">
         <button class="tbtn" id="btnLangCs">CS</button>
@@ -407,6 +411,7 @@
       settingsHint: 'Nastavení tabletu',
       rememberCallsignLabel: 'Pamatovat volací znak mezi připojeními',
       soundsLabel: 'Zvuky u nových zpráv',
+      airportNamesLabel: 'Přečíst jméno letiště u METAR/ATIS',
       langLabel: 'Jazyk',
       on: 'Zapnuto', off: 'Vypnuto',
       tabMessages: 'Zprávy', tabNotes: 'Poznámky', tabTraffic: 'Provoz', tabPrivate: 'Private',
@@ -440,6 +445,7 @@
       settingsHint: 'Tablet settings',
       rememberCallsignLabel: 'Remember callsign between connections',
       soundsLabel: 'Sounds for new messages',
+      airportNamesLabel: 'Read airport name for METAR/ATIS',
       langLabel: 'Language',
       on: 'On', off: 'Off',
       tabMessages: 'Messages', tabNotes: 'Notes', tabTraffic: 'Traffic', tabPrivate: 'Private',
@@ -479,6 +485,7 @@
 
     // A few dynamic bits aren't plain data-i18n text and need refreshing too.
     refreshSoundsToggle();
+    refreshAirportNamesToggle();
     lastStatusSignature = null; // forces pollStatus to redraw connect/disconnect + remember-callsign text now, not in up to 2s
     pollStatus();
   }
@@ -651,14 +658,14 @@
   var CLOUD_AMOUNT = { FEW: 'few clouds', SCT: 'scattered clouds', BKN: 'broken clouds', OVC: 'overcast' };
   var WX_GROUP = new RegExp('^(-|\\+)?((?:MI|PR|BC|DR|BL|SH|TS|FZ)?)((?:DZ|RA|SN|SG|IC|PL|GR|GS|UP|BR|FG|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS){1,2})$');
 
-  function metarToSpeech(raw) {
+  function metarToSpeech(raw, resolveAirport) {
     var out = [];
     raw.trim().split(/\s+/).forEach(function (tok, idx) {
       var m;
       // The station identifier is always the very first token of a METAR -
       // only that position is checked against AIRPORTS, so an unrelated
       // four-letter token elsewhere in the report is never mistaken for one.
-      if (idx === 0 && AIRPORTS[tok]) {
+      if (idx === 0 && resolveAirport && AIRPORTS[tok]) {
         out.push(AIRPORTS[tok]);
         return;
       }
@@ -743,9 +750,9 @@
     CTR: 'Center', DEL: 'Delivery', RMK: 'Remark'
   };
 
-  function atisToSpeech(raw, icao) {
+  function atisToSpeech(raw, icao, resolveAirport) {
     var text = raw;
-    var airportName = icao && AIRPORTS[icao];
+    var airportName = resolveAirport && icao && AIRPORTS[icao];
 
     // Some ATIS text also spells the bare ICAO code out in the body itself
     // right next to the word ATIS (e.g. a "DEP ATIS EDDF" header line),
@@ -754,12 +761,14 @@
     // Scoped tightly to right next to the literal word ATIS (rather than
     // any four-letter word anywhere) since a handful of real airport ICAO
     // codes collide with ordinary English words (e.g. "SAME", "LESS").
-    text = text.replace(/\b([A-Z]{4})\s+ATIS\b/g, function (full, code) {
-      return (AIRPORTS[code] || code) + ' ATIS';
-    });
-    text = text.replace(/\bATIS\s+([A-Z]{4})\b/g, function (full, code) {
-      return 'ATIS ' + (AIRPORTS[code] || code);
-    });
+    if (resolveAirport) {
+      text = text.replace(/\b([A-Z]{4})\s+ATIS\b/g, function (full, code) {
+        return (AIRPORTS[code] || code) + ' ATIS';
+      });
+      text = text.replace(/\bATIS\s+([A-Z]{4})\b/g, function (full, code) {
+        return 'ATIS ' + (AIRPORTS[code] || code);
+      });
+    }
 
     // RWY/RUNWAY followed by one or more runway designators ("RWY 07L",
     // "RWY 07 25", "RUNWAY 07L AND 25R") - every designator after the
@@ -855,10 +864,22 @@
       return 'dew point ' + (neg ? 'minus ' : '') + spellDigits(digits);
     });
 
+    // Radio frequency, e.g. "119.510" - all aviation VHF/NAV frequencies
+    // fall in the 100-139 range, so that's used here rather than matching
+    // any decimal number. Read digit-by-digit either side of the point,
+    // like everything else here, not as two whole numbers.
+    text = text.replace(/\b(1[0-3]\d)\.(\d{1,3})\b/g, function (full, whole, frac) {
+      return spellDigits(whole) + ' decimal ' + spellDigits(frac);
+    });
+
     text = text.replace(/\b(VIS|VISIBILITY)\s+9999\b/gi, 'Visibility 10 kilometers or more');
     text = text.replace(/\b(VIS|VISIBILITY)\s+(\d{4})\b/gi, function (full, word, digits) {
       return 'Visibility ' + parseInt(digits, 10) + ' meters';
     });
+    // "9999" also shows up with no VIS/VISIBILITY label at all in some ATIS
+    // formats - it's a reserved value (visibility 10km or more) with no
+    // other legitimate meaning, so it's safe to catch on its own too.
+    text = text.replace(/\b9999\b/g, 'Visibility 10 kilometers or more');
 
     text = text.replace(/\b[A-Z]{2,}\b/g, function (word) {
       return ATIS_ABBR[word] || word;
@@ -900,9 +921,10 @@
       // leading run of letters rather than assuming one specific separator
       // or suffix pattern.
       var icaoMatch = (m.from || '').toUpperCase().match(/^[A-Z]{4}/);
+      var resolveAirport = airportNamesEnabled();
       var spoken = m.type === 'METAR'
-        ? metarToSpeech(m.text)
-        : atisToSpeech(m.text, icaoMatch ? icaoMatch[0] : null);
+        ? metarToSpeech(m.text, resolveAirport)
+        : atisToSpeech(m.text, icaoMatch ? icaoMatch[0] : null, resolveAirport);
       var utter = new SpeechSynthesisUtterance(spoken);
       utter.lang = 'en-US'; // aviation phraseology is always in English
       utter.rate = 0.5; // was near-normal speed (0.95) - way too fast to actually follow
@@ -1031,6 +1053,9 @@
   // ---------- messages ----------
   function soundsEnabled() {
     try { return localStorage.getItem('tabletbridge-sounds') !== '0'; } catch (e) { return true; }
+  }
+  function airportNamesEnabled() {
+    try { return localStorage.getItem('tabletbridge-airport-names') !== '0'; } catch (e) { return true; }
   }
 
   function beep() {
@@ -1602,6 +1627,19 @@
     var newState = !soundsEnabled();
     try { localStorage.setItem('tabletbridge-sounds', newState ? '1' : '0'); } catch (e) { /* ignore */ }
     refreshSoundsToggle();
+  });
+
+  function refreshAirportNamesToggle() {
+    var btn = document.getElementById('btnAirportNamesToggle');
+    var on = airportNamesEnabled();
+    btn.textContent = on ? t('on') : t('off');
+    btn.className = 'tbtn' + (on ? ' on' : '');
+  }
+  refreshAirportNamesToggle();
+  document.getElementById('btnAirportNamesToggle').addEventListener('click', function () {
+    var newState = !airportNamesEnabled();
+    try { localStorage.setItem('tabletbridge-airport-names', newState ? '1' : '0'); } catch (e) { /* ignore */ }
+    refreshAirportNamesToggle();
   });
 
   document.getElementById('btnLangCs').addEventListener('click', function () { setLang('cs'); });
