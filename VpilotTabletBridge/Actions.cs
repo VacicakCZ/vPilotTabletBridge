@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 using RossCarlson.Vatsim.Vpilot.Plugins;
 
@@ -49,6 +50,30 @@ namespace VpilotTabletBridge
             _broker.RequestMetar(station);
         }
 
+        // vPilot appears to only track one pending ATIS request at a time -
+        // firing a second one before the first has had a chance to come back
+        // seems to silently drop the earlier one rather than queue it
+        // (observed live: requesting an airport's combined/Arrival/Departure
+        // ATIS back-to-back only ever showed the last of the three). This
+        // lock + minimum-interval serializes *every* RequestAtis call this
+        // plugin makes - whether from the bare-ICAO expansion below or from
+        // two quick taps on different Controllers-In-Range rows, which hits
+        // the same problem from two separate HTTP requests/threads.
+        private static readonly object _atisLock = new object();
+        private static DateTime _lastAtisRequestUtc = DateTime.MinValue;
+        private const int AtisMinIntervalMs = 1500;
+
+        private void RequestAtisSingle(string callsign)
+        {
+            lock (_atisLock)
+            {
+                int wait = AtisMinIntervalMs - (int)(DateTime.UtcNow - _lastAtisRequestUtc).TotalMilliseconds;
+                if (wait > 0) Thread.Sleep(wait);
+                _broker.RequestAtis(callsign);
+                _lastAtisRequestUtc = DateTime.UtcNow;
+            }
+        }
+
         public void RequestAtis(string callsign)
         {
             callsign = (callsign ?? "").Trim().ToUpperInvariant();
@@ -58,16 +83,17 @@ namespace VpilotTabletBridge
             {
                 // Already a specific callsign (e.g. a combined "LKPR_A_ATIS")
                 // typed on purpose - ask for exactly that, nothing else.
-                _broker.RequestAtis(callsign);
+                RequestAtisSingle(callsign);
                 return;
             }
 
             // Bare ICAO code: some airports publish one combined ATIS, others
             // split it into separate Arrival/Departure ATIS under different
             // callsigns. There's no way to know which from here, so ask for
-            // all three common patterns - whichever are actually staffed
-            // respond with their own AtisReceived event; the rest are simply
-            // never answered, which is harmless.
+            // all three common patterns, spaced out (see RequestAtisSingle) -
+            // whichever are actually staffed respond with their own
+            // AtisReceived event; the rest are simply never answered, which
+            // is harmless.
             string[] candidates = { callsign + "_ATIS", callsign + "_A_ATIS", callsign + "_D_ATIS" };
             int succeeded = 0;
             Exception lastError = null;
@@ -75,7 +101,7 @@ namespace VpilotTabletBridge
             {
                 try
                 {
-                    _broker.RequestAtis(c);
+                    RequestAtisSingle(c);
                     succeeded++;
                 }
                 catch (Exception ex)
