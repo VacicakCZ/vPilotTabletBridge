@@ -654,8 +654,10 @@
       } else if (tok === '00000KT') {
         out.push('wind calm');
       } else if ((m = tok.match(/^(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT$/))) {
+        // ATC phraseology reads wind direction, speed and gust digit-by-digit
+        // ("wind two six zero at one two knots"), never as whole numbers.
         var dir = m[1] === 'VRB' ? 'variable' : spellDigits(m[1]) + ' degrees';
-        out.push('wind ' + dir + ' at ' + m[2] + ' knots' + (m[3] ? ', gusting ' + m[3] : ''));
+        out.push('wind ' + dir + ' at ' + spellDigits(m[2]) + ' knots' + (m[3] ? ', gusting ' + spellDigits(m[3]) : ''));
       } else if ((m = tok.match(/^(\d{3})V(\d{3})$/))) {
         out.push('variable between ' + spellDigits(m[1]) + ' and ' + spellDigits(m[2]) + ' degrees');
       } else if (tok === 'CAVOK') {
@@ -730,24 +732,36 @@
   function atisToSpeech(raw) {
     var text = raw;
 
-    text = text.replace(/\b(RWY|RUNWAY)\s+(\d{2})(L|R|C)?\b/gi, function (full, word, digits, side) {
-      var suffix = side === 'L' ? ' left' : side === 'R' ? ' right' : side === 'C' ? ' center' : '';
-      return 'Runway ' + spellDigits(digits) + suffix;
+    // RWY/RUNWAY followed by one or more runway designators ("RWY 07L",
+    // "RWY 07 25", "RUNWAY 07L AND 25R") - every designator after the
+    // keyword gets read digit-by-digit, not just the first one.
+    text = text.replace(/\b(?:RWY|RUNWAY)((?:\s+(?:AND\s+)?\d{2}[LRC]?)+)\b/gi, function (full, list) {
+      var designators = list.match(/\d{2}[LRC]?/gi) || [];
+      var spoken = designators.map(function (d) {
+        var m = d.match(/^(\d{2})([LRC])?$/i);
+        var side = m[2] ? m[2].toUpperCase() : null;
+        var suffix = side === 'L' ? ' left' : side === 'R' ? ' right' : side === 'C' ? ' center' : '';
+        return spellDigits(m[1]) + suffix;
+      });
+      return 'Runway ' + spoken.join(' and ');
     });
 
-    // ATIS wind is sometimes written "270/15KT" (slash)...
-    text = text.replace(/\b(\d{3})\/(\d{2,3})(?:G(\d{2,3}))?(?:KT|KTS)?\b/g, function (full, dir, spd, gust) {
-      return spellDigits(dir) + ' degrees at ' + spd + ' knots' + (gust ? ', gusting ' + gust : '');
+    // Wind: consume a literal "WIND" label if the raw text already has one
+    // (real ATIS text usually does) so it's never duplicated, but always
+    // emit exactly one "Wind" ourselves so it reads consistently either way.
+    // Direction, speed and gust are all read digit-by-digit, matching real
+    // ATC phraseology ("Wind two six zero at one two knots"), not as whole
+    // numbers. ATIS wind is sometimes written "270/15KT" (slash)...
+    text = text.replace(/\b(?:WIND\s+)?(\d{3})\/(\d{2,3})(?:G(\d{2,3}))?(?:KT|KTS)?\b/gi, function (full, dir, spd, gust) {
+      return 'Wind ' + spellDigits(dir) + ' degrees at ' + spellDigits(spd) + ' knots' + (gust ? ', gusting ' + spellDigits(gust) : '');
     });
     // ...but real ATIS generators (e.g. vATIS) commonly emit the exact same
     // concatenated METAR-style group instead ("26012KT", "18015G20KT",
     // "VRB05KT") - without this, that whole group was being read back
-    // letter-by-letter instead of as wind. No "wind" prefix here (unlike
-    // metarToSpeech's equivalent) - the raw ATIS text already has a literal
-    // "WIND" label right before this group, so adding one would double it up.
-    text = text.replace(/\b(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT\b/g, function (full, dir, spd, gust) {
-      var dirText = dir === 'VRB' ? 'variable' : spellDigits(dir) + ' degrees';
-      return dirText + ' at ' + spd + ' knots' + (gust ? ', gusting ' + gust : '');
+    // letter-by-letter instead of as wind.
+    text = text.replace(/\b(?:WIND\s+)?(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT\b/gi, function (full, dir, spd, gust) {
+      var dirText = dir.toUpperCase() === 'VRB' ? 'variable' : spellDigits(dir) + ' degrees';
+      return 'Wind ' + dirText + ' at ' + spellDigits(spd) + ' knots' + (gust ? ', gusting ' + spellDigits(gust) : '');
     });
     // Variable wind direction range, e.g. "240V270".
     text = text.replace(/\b(\d{3})V(\d{3})\b/g, function (full, from, to) {
