@@ -143,7 +143,18 @@ automatically, and if the airport splits it into separate Arrival and
 Departure ATIS, both are requested at once; whichever is actually staffed
 answers, the other is silently ignored. Results land in the message log
 under the "METAR/ATIS" filter. Both fields also accept a specific
-callsign typed in full (e.g. `LKPR_A_ATIS`) if you already know it.
+callsign typed in full (e.g. `LKPR_A_ATIS`), and clear themselves once a
+request is confirmed sent successfully.
+
+If a VATSIM CID is set in Settings, this panel also shows one-tap buttons
+for your currently filed flight plan's departure and destination airports
+(pulled from VATSIM's public data feed - vPilot's own plugin API doesn't
+expose flight plan data at all) - tapping one requests both METAR and
+ATIS for that airport at once. Entirely optional: leave the CID field
+blank and the buttons never appear. Unlike everything else in this
+plugin, this one feature needs the tablet itself (not just the PC running
+vPilot) to have general internet access, since it talks to VATSIM's feed
+directly rather than through the plugin's own local server.
 
 Every METAR/ATIS entry has a ▶ button that reads it aloud - in aviation
 phraseology, not a raw letter-by-letter spelling of the METAR code, e.g.
@@ -187,6 +198,9 @@ The ⚙ button opens:
 - **Read airport name for METAR/ATIS** - on by default, also per-device;
   turns off the airport-name lookup described above if you'd rather hear
   the bare ICAO code.
+- **VATSIM CID** - optional, per-device; enables the flight-plan quick
+  buttons in the Weather panel described above. Leave it blank to skip
+  this entirely.
 - **Language** - CS/EN, switches the whole interface instantly. The
   Controllers In Range panel and its 8 categories stay in English
   regardless, matching standard ATC phraseology and vPilot's own window.

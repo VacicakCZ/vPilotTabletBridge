@@ -85,6 +85,8 @@
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 4px 0; font-size: 14px;
   }
+  .fpl-buttons { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .fpl-buttons button { flex: 1; min-width: 140px; }
 
   /* ---- workspace: controllers panel + main panel ---- */
   .workspace { flex: 1; display: flex; min-height: 0; }
@@ -265,6 +267,7 @@
 
   <div class="connect-form" id="weatherPanel">
     <div class="hint" data-i18n="weatherHint">Oba stačí zadat jako ICAO kód letiště (např. LKPR). U ATIS se zkusí najít zvlášť Arrival i Departure, pokud je letiště takhle dělí. Výsledek se objeví v logu zpráv, ve filtru "METAR/ATIS".</div>
+    <div id="fplButtons" class="fpl-buttons" hidden></div>
     <div class="row">
       <input type="text" id="fMetarStation" data-i18n-placeholder="metarPlaceholder" placeholder="METAR - ICAO letiště (např. LKPR)" autocapitalize="characters">
       <button class="tbtn" id="btnRequestMetar">METAR</button>
@@ -288,6 +291,13 @@
     <div class="settings-row">
       <span data-i18n="airportNamesLabel">Přečíst jméno letiště u METAR/ATIS</span>
       <button class="tbtn" id="btnAirportNamesToggle">Zapnuto</button>
+    </div>
+    <div class="settings-row">
+      <span data-i18n="vatsimCidLabel">VATSIM CID (pro tlačítka podle letového plánu)</span>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="fVatsimCid" inputmode="numeric" data-i18n-placeholder="vatsimCidPlaceholder" placeholder="CID (nepovinné)" style="width:110px;">
+        <button class="tbtn" id="btnVatsimCidSave" data-i18n="saveBtn">Uložit</button>
+      </div>
     </div>
     <div class="settings-row">
       <span data-i18n="langLabel">Jazyk</span>
@@ -412,6 +422,11 @@
       rememberCallsignLabel: 'Pamatovat volací znak mezi připojeními',
       soundsLabel: 'Zvuky u nových zpráv',
       airportNamesLabel: 'Přečíst jméno letiště u METAR/ATIS',
+      vatsimCidLabel: 'VATSIM CID (pro tlačítka podle letového plánu)',
+      vatsimCidPlaceholder: 'CID (nepovinné)',
+      saveBtn: 'Uložit',
+      fplDeparture: 'Odlet',
+      fplArrival: 'Přílet',
       langLabel: 'Jazyk',
       on: 'Zapnuto', off: 'Vypnuto',
       tabMessages: 'Zprávy', tabNotes: 'Poznámky', tabTraffic: 'Provoz', tabPrivate: 'Private',
@@ -446,6 +461,11 @@
       rememberCallsignLabel: 'Remember callsign between connections',
       soundsLabel: 'Sounds for new messages',
       airportNamesLabel: 'Read airport name for METAR/ATIS',
+      vatsimCidLabel: 'VATSIM CID (for flight-plan buttons)',
+      vatsimCidPlaceholder: 'CID (optional)',
+      saveBtn: 'Save',
+      fplDeparture: 'Departure',
+      fplArrival: 'Arrival',
       langLabel: 'Language',
       on: 'On', off: 'Off',
       tabMessages: 'Messages', tabNotes: 'Notes', tabTraffic: 'Traffic', tabPrivate: 'Private',
@@ -486,6 +506,7 @@
     // A few dynamic bits aren't plain data-i18n text and need refreshing too.
     refreshSoundsToggle();
     refreshAirportNamesToggle();
+    renderFplButtons();
     lastStatusSignature = null; // forces pollStatus to redraw connect/disconnect + remember-callsign text now, not in up to 2s
     pollStatus();
   }
@@ -1601,6 +1622,73 @@
     document.getElementById('btnRequestAtis').click();
     this.blur();
   });
+
+  // ---------- flight-plan quick buttons (opt-in via VATSIM CID) ----------
+  // Vpilot's own plugin API has no flight-plan data at all, so this reads
+  // it straight from VATSIM's public data feed instead - which is why it's
+  // opt-in: unlike everything else here, it needs the tablet itself (not
+  // just the PC running vPilot) to have general internet access, not just
+  // a route to the plugin's own local server.
+  function vatsimCid() {
+    try { return localStorage.getItem('tabletbridge-vatsim-cid') || ''; } catch (e) { return ''; }
+  }
+
+  var lastFpl = null; // { departure, arrival } from the most recent successful fetch, or null
+
+  function renderFplButtons() {
+    var container = document.getElementById('fplButtons');
+    container.innerHTML = '';
+    if (!lastFpl) {
+      container.hidden = true;
+      return;
+    }
+    container.hidden = false;
+    [['fplDeparture', lastFpl.departure], ['fplArrival', lastFpl.arrival]].forEach(function (pair) {
+      var icao = pair[1];
+      if (!icao) return;
+      var btn = document.createElement('button');
+      btn.className = 'tbtn';
+      btn.textContent = t(pair[0]) + ': ' + icao;
+      btn.addEventListener('click', function () {
+        postForm('/api/metar', { station: icao });
+        postForm('/api/atis', { callsign: icao });
+        activateTab('messages');
+        activateFilter('WEATHER');
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function fetchFlightPlan() {
+    var cid = vatsimCid();
+    if (!cid) {
+      lastFpl = null;
+      renderFplButtons();
+      return;
+    }
+    fetch('https://data.vatsim.net/v3/vatsim-data.json', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var entry = (data.pilots || []).concat(data.prefiles || [])
+          .find(function (p) { return String(p.cid) === cid && p.flight_plan; });
+        lastFpl = entry ? { departure: entry.flight_plan.departure, arrival: entry.flight_plan.arrival } : null;
+        renderFplButtons();
+      })
+      .catch(function () {
+        // No/lost internet access on the tablet, or VATSIM's feed is down -
+        // silently leave whatever was last shown rather than erroring out,
+        // since this is a best-effort extra, not core functionality.
+      });
+  }
+
+  document.getElementById('fVatsimCid').value = vatsimCid();
+  document.getElementById('btnVatsimCidSave').addEventListener('click', function () {
+    var cid = document.getElementById('fVatsimCid').value.trim();
+    try { localStorage.setItem('tabletbridge-vatsim-cid', cid); } catch (e) { /* ignore */ }
+    fetchFlightPlan();
+  });
+  fetchFlightPlan();
+  setInterval(fetchFlightPlan, 120000); // flight plans rarely change - no need to hammer VATSIM's feed
 
   document.getElementById('btnSettings').addEventListener('click', function () {
     togglePanel('settingsPanel');
