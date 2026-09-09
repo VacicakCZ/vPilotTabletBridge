@@ -1,5 +1,7 @@
 # vPilot Tablet Bridge
 
+![vPilot Tablet Bridge](docs/screenshot.png)
+
 vPilot plugin that mirrors radio, private, broadcast and SELCAL messages
 (plus connect/disconnect notices) to a small web page served over your home
 network, so you can read them on a tablet in a cockpit where the PC itself
