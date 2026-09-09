@@ -145,6 +145,15 @@ answers, the other is silently ignored. Results land in the message log
 under the "METAR/ATIS" filter. Both fields also accept a specific
 callsign typed in full (e.g. `LKPR_A_ATIS`) if you already know it.
 
+Every METAR/ATIS entry has a 🔊 button that reads it aloud - in aviation
+phraseology, not a raw letter-by-letter spelling of the METAR code, e.g.
+"wind two seven zero degrees at 15 knots, gusting 25" and "scattered
+clouds at 3500 feet" rather than reading "27015G25KT SCT035" as-is. It's a
+best-effort converter, not a certified parser, so unusual formats may come
+out a bit literal. This is deliberately *not* offered for radio/private
+messages - those already have real voice traffic going on via Audio for
+VATSIM, and having the tablet talk over that too would just be noise.
+
 ### Traffic
 
 The **Traffic** tab lists nearby aircraft as vPilot currently sees them -
