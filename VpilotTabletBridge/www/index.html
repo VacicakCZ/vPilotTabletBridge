@@ -765,7 +765,7 @@
       var spoken = m.type === 'METAR' ? metarToSpeech(m.text) : atisToSpeech(m.text);
       var utter = new SpeechSynthesisUtterance(spoken);
       utter.lang = 'en-US'; // aviation phraseology is always in English
-      utter.rate = 0.95;
+      utter.rate = 0.5; // was near-normal speed (0.95) - way too fast to actually follow
       window.speechSynthesis.speak(utter);
     } catch (e) { /* not fatal */ }
   }
