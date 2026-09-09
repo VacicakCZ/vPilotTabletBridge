@@ -47,36 +47,46 @@ just the plugin DLL sitting in vPilot's `Plugins` folder.
 
 ## Installation
 
-1. Build the plugin DLL (see "Setting up a fresh clone" and "Rebuilding"
-   below) - there's no pre-built release yet, so this step is required.
-2. Copy the resulting `VpilotTabletBridge.dll` into vPilot's `Plugins`
+1. Get `VpilotTabletBridge.dll` - either download the pre-built one from
+   the [Releases](../../releases) page, or build it yourself (see "Setting
+   up a fresh clone" and "Rebuilding" below).
+2. Copy `VpilotTabletBridge.dll` into vPilot's `Plugins`
    folder:
    ```powershell
    copy "bin\Release\VpilotTabletBridge.dll" "$env:LocalAppData\vPilot\Plugins\"
    ```
    (vPilot must be closed while you do this - it locks the file while running.)
-3. Start vPilot, then type `.debug` into it (in the main text box, like any
-   other dot command) to open the separate "vPilot Debug Messages" window.
-   That window only shows messages posted *after* it's opened, so the
-   plugin posts the address(es) twice - immediately on startup, and again
-   ~10s later - to give this a real chance of landing even if you type
+3. Start vPilot. The very first time this plugin ever runs, it opens a QR
+   code for the tablet's address in your PC's default browser
+   automatically - scan it with the tablet's camera to jump straight to
+   the page. It only does this once ever (a marker file next to the DLL
+   remembers it happened, the same way a Windows tray notification was
+   tried here at one point and dropped - unwanted background popups
+   aren't worth it for a repeat notification). To see that QR code again
+   later, open `http://<the PC's address>:8686/qr` in any browser on the
+   PC.
+
+   If you'd rather type the address by hand, or the QR page didn't open:
+   type `.debug` into vPilot (in the main text box, like any other dot
+   command) to open the separate "vPilot Debug Messages" window. That
+   window only shows messages posted *after* it's opened, so the plugin
+   posts the address(es) twice - immediately on startup, and again ~10s
+   later - to give this a real chance of landing even if you type
    `.debug` a few seconds after vPilot starts rather than before. The same
    addresses are always written to
    `%LocalAppData%\vPilot\Plugins\TabletBridge-debug.log` next to the DLL
-   too, if you'd rather check there instead.
-
-   (There is no way for a plugin to write into vPilot's normal Messages
-   panel directly - only into that separate debug window, or by actually
+   too, if you'd rather check there instead. (There is no way for a
+   plugin to write into vPilot's normal Messages panel directly - only
+   into that separate debug window, the QR page, or by actually
    transmitting a real radio/private message over the network, which
-   would obviously be inappropriate for a local startup notice. A Windows
-   tray notification was tried here too at one point but was dropped -
-   unwanted background notifications aren't worth it for this.)
+   would obviously be inappropriate for a local startup notice.)
 
    If none of that shows anything at all, see "Troubleshooting" below.
 4. On the tablet - **while it's on the same Wi-Fi network as the PC** -
-   open that address in a browser. Add it to the home screen for a quick
-   full-screen shortcut. **On iPad, use Safari** - see the known Chrome
-   issue further down if you'd rather use Chrome there.
+   open that address in a browser (or just scan the QR code from step 3).
+   Add it to the home screen for a quick full-screen shortcut. **On iPad,
+   use Safari** - see the known Chrome issue further down if you'd rather
+   use Chrome there.
 
 ## User guide
 
@@ -350,6 +360,7 @@ VpilotTabletBridge/
   Json.cs                      - tiny shared JSON escaping/formatting helpers
   WebServer.cs                 - TcpListener-based HTTP server, serves the page + JSON API
   www/index.html                - the tablet page (HTML/CSS/JS, embedded as a resource)
+  www/qr.html                    - the /qr connect page, with a vendored QR-code JS library
 lib/
   RossCarlson.Vatsim.Vpilot.Plugins.dll  - copy of vPilot's plugin API, for compiling only (not
                                             in this repo - see "Setting up a fresh clone" below)
@@ -392,3 +403,5 @@ while running.)
 MIT - see [LICENSE](LICENSE). Does not cover
 `RossCarlson.Vatsim.Vpilot.Plugins.dll`, which isn't part of this project
 and isn't included in the repo (see "Setting up a fresh clone" above).
+`www/qr.html` also vendors [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)
+by Kazuhiko Arase, also MIT-licensed - copyright notice kept intact in that file.

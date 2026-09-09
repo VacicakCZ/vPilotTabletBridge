@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -57,10 +58,11 @@ namespace VpilotTabletBridge
             Log("Using port " + port + ".");
 
             var actions = new Actions(broker, _store, _state);
+            List<string> ips = GetLocalIPv4Addresses();
 
             try
             {
-                _server = new WebServer(port, _store, _state, _controllers, _traffic, actions);
+                _server = new WebServer(port, _store, _state, _controllers, _traffic, actions, ips);
                 _server.Start();
                 Log("WebServer.Start() succeeded on port " + port + ".");
             }
@@ -70,8 +72,6 @@ namespace VpilotTabletBridge
                 _broker.PostDebugMessage("[Tablet Bridge] Failed to start web server on port " + port + ": " + ex.Message);
                 return;
             }
-
-            List<string> ips = GetLocalIPv4Addresses();
 
             // PostDebugMessage doesn't reach vPilot's normal Messages panel -
             // it only goes to the separate "vPilot Debug Messages" window
@@ -87,6 +87,8 @@ namespace VpilotTabletBridge
                 PostAddressDebugLines(ips, port);
                 _delayedDebugTimer.Dispose();
             }, null, 10000, Timeout.Infinite);
+
+            OpenQrCodeOnFirstRunOnly(ips, port);
 
             _broker.NetworkConnected += OnNetworkConnected;
             _broker.NetworkDisconnected += OnNetworkDisconnected;
@@ -117,6 +119,41 @@ namespace VpilotTabletBridge
             foreach (string ip in ips)
             {
                 _broker.PostDebugMessage("[Tablet Bridge]   http://" + ip + ":" + port + "/");
+            }
+            if (ips.Count > 0)
+            {
+                _broker.PostDebugMessage("[Tablet Bridge] Or scan a QR code for it: http://" + ips[0] + ":" + port + "/qr");
+            }
+        }
+
+        /// <summary>
+        /// Opens the QR-code connect page in the default browser, but only
+        /// the very first time this plugin ever loads - a marker file next
+        /// to the DLL remembers that it already happened, so it never pops
+        /// up again on every subsequent vPilot start (which would be the
+        /// same kind of unwanted repeat-notification the tray-icon approach
+        /// was dropped for earlier in this project). ".debug"/the log file
+        /// keep mentioning the /qr URL every time for whoever wants to see
+        /// it again later.
+        /// </summary>
+        private void OpenQrCodeOnFirstRunOnly(List<string> ips, int port)
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
+                string markerPath = Path.Combine(dir, "TabletBridge-qr-shown.flag");
+                if (File.Exists(markerPath)) return;
+
+                File.WriteAllText(markerPath, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                if (ips.Count == 0) return;
+
+                Process.Start(new ProcessStartInfo("http://" + ips[0] + ":" + port + "/qr") { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Log("OpenQrCodeOnFirstRunOnly() threw: " + ex);
+                // Non-fatal: worst case the pilot just doesn't get the popup
+                // and finds the address in .debug/the log file instead.
             }
         }
 
@@ -199,7 +236,29 @@ namespace VpilotTabletBridge
             }
 
             if (results.Count == 0) results.Add("127.0.0.1");
+
+            // NetworkInterface.GetAllNetworkInterfaces() doesn't order these
+            // usefully - a Tailscale/other VPN adapter (100.64.0.0/10) or a
+            // WSL/Hyper-V virtual switch can easily land ahead of the actual
+            // home-LAN address a tablet on the same Wi-Fi can reach. Only
+            // matters cosmetically for the plain text list, but it matters a
+            // lot for the QR code, which can only encode one address - so
+            // sort real home-LAN ranges first.
+            results.Sort((a, b) => AddressPriority(a).CompareTo(AddressPriority(b)));
             return results;
+        }
+
+        private static int AddressPriority(string ip)
+        {
+            byte[] parts;
+            try { parts = System.Net.IPAddress.Parse(ip).GetAddressBytes(); }
+            catch { return 3; }
+            if (parts.Length != 4) return 3;
+
+            if (parts[0] == 192 && parts[1] == 168) return 0;
+            if (parts[0] == 10) return 1;
+            if (parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) return 2;
+            return 3; // includes Tailscale's 100.64.0.0/10 and anything else
         }
 
         private void OnNetworkConnected(object sender, NetworkConnectedEventArgs e)

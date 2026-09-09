@@ -12,3 +12,4 @@ lib/*.xml
 # ends up here from local testing.
 TabletBridge-debug.log
 TabletBridge-connect.ini
+TabletBridge-qr-shown.flag

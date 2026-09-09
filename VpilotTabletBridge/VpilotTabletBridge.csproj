@@ -29,6 +29,9 @@
     <EmbeddedResource Include="www\index.html">
       <LogicalName>VpilotTabletBridge.index.html</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="www\qr.html">
+      <LogicalName>VpilotTabletBridge.qr.html</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

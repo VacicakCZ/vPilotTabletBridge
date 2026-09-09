@@ -30,13 +30,14 @@ namespace VpilotTabletBridge
         private readonly Controllers _controllers;
         private readonly Traffic _traffic;
         private readonly Actions _actions;
+        private readonly string _qrPage;
         private TcpListener _listener;
         private Thread _acceptThread;
         private volatile bool _running;
 
         private static readonly string HtmlPage = LoadEmbeddedHtml();
 
-        public WebServer(int port, MessageStore store, PluginState state, Controllers controllers, Traffic traffic, Actions actions)
+        public WebServer(int port, MessageStore store, PluginState state, Controllers controllers, Traffic traffic, Actions actions, List<string> localIps)
         {
             _port = port;
             _store = store;
@@ -44,6 +45,7 @@ namespace VpilotTabletBridge
             _controllers = controllers;
             _traffic = traffic;
             _actions = actions;
+            _qrPage = BuildQrPage(localIps, port);
         }
 
         public void Start()
@@ -144,6 +146,12 @@ namespace VpilotTabletBridge
             if (method == "GET" && (path == "/" || path == "/index.html"))
             {
                 WriteResponse(stream, "200 OK", "text/html; charset=utf-8", HtmlPage);
+                return;
+            }
+
+            if (method == "GET" && path == "/qr")
+            {
+                WriteResponse(stream, "200 OK", "text/html; charset=utf-8", _qrPage);
                 return;
             }
 
@@ -281,6 +289,45 @@ namespace VpilotTabletBridge
                     return reader.ReadToEnd();
                 }
             }
+        }
+
+        /// <summary>
+        /// Fills the qr.html template's placeholders in once at startup (the
+        /// address list and port never change for the life of the process),
+        /// rather than redoing the substitution on every request.
+        /// </summary>
+        private static string BuildQrPage(List<string> localIps, int port)
+        {
+            Assembly asm = typeof(WebServer).Assembly;
+            string template;
+            using (Stream s = asm.GetManifestResourceStream("VpilotTabletBridge.qr.html"))
+            {
+                if (s == null) return "<html><body>qr.html embedded resource not found.</body></html>";
+                using (var reader = new StreamReader(s, Encoding.UTF8))
+                {
+                    template = reader.ReadToEnd();
+                }
+            }
+
+            string primaryUrl = "http://" + (localIps.Count > 0 ? localIps[0] : "127.0.0.1") + ":" + port + "/";
+
+            string otherAddrsBlock = "";
+            if (localIps.Count > 1)
+            {
+                var sb = new StringBuilder();
+                sb.Append("<div class=\"other-addrs\"><div class=\"label\">Other addresses on this PC</div>");
+                for (int i = 1; i < localIps.Count; i++)
+                {
+                    string addr = "http://" + localIps[i] + ":" + port + "/";
+                    sb.Append("<a href=\"").Append(addr).Append("\">").Append(addr).Append("</a>");
+                }
+                sb.Append("</div>");
+                otherAddrsBlock = sb.ToString();
+            }
+
+            return template
+                .Replace("__PRIMARY_URL__", primaryUrl)
+                .Replace("__OTHER_ADDRS_BLOCK__", otherAddrsBlock);
         }
 
         /// <summary>Tiny application/x-www-form-urlencoded parser - no external dependency needed for a handful of form fields.</summary>
