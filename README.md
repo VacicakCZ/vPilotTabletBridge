@@ -50,6 +50,28 @@ real state, which wasn't worth the confusion.
 Everything is self-contained: no internet access, no external libraries,
 just the plugin DLL sitting in vPilot's `Plugins` folder.
 
+## Installation
+
+1. Build the plugin DLL (see "Setting up a fresh clone" and "Rebuilding"
+   below) - there's no pre-built release yet, so this step is required.
+2. Copy the resulting `VpilotTabletBridge.dll` into vPilot's `Plugins`
+   folder:
+   ```powershell
+   copy "bin\Release\VpilotTabletBridge.dll" "$env:LocalAppData\vPilot\Plugins\"
+   ```
+   (vPilot must be closed while you do this - it locks the file while running.)
+3. Start vPilot and check its debug/log window for a line like:
+   ```
+   [Tablet Bridge] Running. Open one of these addresses on your tablet:
+   [Tablet Bridge]   http://192.168.x.x:8686/
+   ```
+   That's the address to use in step 4. If you don't see these lines at
+   all, see "Troubleshooting" below.
+4. On the tablet - **while it's on the same Wi-Fi network as the PC** -
+   open that address in a browser. Add it to the home screen for a quick
+   full-screen shortcut. **On iPad, use Safari** - see the known Chrome
+   issue further down if you'd rather use Chrome there.
+
 ## User guide
 
 What each part of the tablet page actually does, once it's up and running
@@ -139,22 +161,6 @@ The left-hand panel (collapsible on narrow/portrait screens via the button
 below it) mirrors vPilot's own "Controllers In Range" list: Center,
 Approach/Departure, Tower, Ground, Ramp, Clearance Delivery, ATIS,
 Observers, each showing who's online and their frequency.
-
-## Status
-
-Built and already deployed to your local vPilot install
-(`%LocalAppData%\vPilot\Plugins\VpilotTabletBridge.dll`). Next time you
-start vPilot, check its debug/log window for a line like:
-
-```
-[Tablet Bridge] Running. Open one of these addresses on your tablet:
-[Tablet Bridge]   http://192.168.x.x:8686/
-```
-
-Open that address in the tablet's browser, while it's on the **same Wi-Fi
-network** as the PC. Add it to the home screen for a quick full-screen
-shortcut. **On iPad, use Safari** - see the known issue below if you'd
-rather use Chrome.
 
 ## Troubleshooting - plugin doesn't seem to load
 
