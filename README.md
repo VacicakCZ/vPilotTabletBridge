@@ -59,10 +59,11 @@ just the plugin DLL sitting in vPilot's `Plugins` folder.
    notification should still have appeared regardless. The same addresses
    are also written to `%LocalAppData%\vPilot\Plugins\TabletBridge-debug.log`
    next to the DLL if you'd rather check there, or missed the notification.
-   (They're technically also sent via `PostDebugMessage`, but that only
-   reaches vPilot's separate ".debug" window, and only for messages posted
-   *after* that window is opened - not useful for a one-time startup notice,
-   so don't rely on it for this.)
+   (They're also sent via `PostDebugMessage`, both immediately and again
+   ~10s later - that only reaches vPilot's separate ".debug" window, and
+   only for messages posted *after* that window is opened, so the resend
+   is there to actually land if you open ".debug" right after seeing the
+   tray notification. Don't rely on the immediate one alone for this.)
    If none of that shows anything at all, see "Troubleshooting" below.
 4. On the tablet - **while it's on the same Wi-Fi network as the PC** -
    open that address in a browser. Add it to the home screen for a quick
