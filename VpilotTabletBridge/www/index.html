@@ -663,7 +663,7 @@
         return;
       }
       if ((m = tok.match(/^(\d{2})(\d{2})(\d{2})Z$/))) {
-        out.push('day ' + m[1] + ', ' + m[2] + ' ' + m[3] + ' Zulu');
+        out.push('day ' + spellDigits(m[1]) + ', ' + spellDigits(m[2]) + ' ' + spellDigits(m[3]) + ' Zulu');
       } else if (tok === '00000KT') {
         out.push('wind calm');
       } else if ((m = tok.match(/^(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT$/))) {
@@ -692,8 +692,9 @@
         out.push('vertical visibility ' + (parseInt(m[1], 10) * 100) + ' feet');
       } else if (tok === 'VV///') {
         out.push('indefinite ceiling');
-      } else if ((m = tok.match(/^(M?\d{2})\/(M?\d{2})$/))) {
-        out.push('temperature ' + m[1].replace('M', 'minus ') + ', dewpoint ' + m[2].replace('M', 'minus '));
+      } else if ((m = tok.match(/^(M?)(\d{2})\/(M?)(\d{2})$/))) {
+        out.push('temperature ' + (m[1] ? 'minus ' : '') + spellDigits(m[2]) +
+          ', dewpoint ' + (m[3] ? 'minus ' : '') + spellDigits(m[4]));
       } else if ((m = tok.match(/^Q(\d{4})$/))) {
         out.push('Q N H ' + spellDigits(m[1]));
       } else if ((m = tok.match(/^A(\d{4})$/))) {
@@ -803,13 +804,13 @@
     // text bothers to mark it, so "Zulu" is always appended here, whether
     // or not a Z was actually present.
     text = text.replace(/\bTIME\s+(\d{2})(\d{2})(\d{2})Z?\b/gi, function (full, day, hh, mm) {
-      return 'Time day ' + day + ', ' + hh + ' ' + mm + ' Zulu';
+      return 'Time day ' + spellDigits(day) + ', ' + spellDigits(hh) + ' ' + spellDigits(mm) + ' Zulu';
     });
     text = text.replace(/\bTIME\s+(\d{4})Z?\b/gi, function (full, digits) {
       return 'Time ' + spellDigits(digits) + ' Zulu';
     });
     text = text.replace(/\b(\d{2})(\d{2})(\d{2})Z\b/g, function (full, day, hh, mm) {
-      return 'day ' + day + ', ' + hh + ' ' + mm + ' Zulu';
+      return 'day ' + spellDigits(day) + ', ' + spellDigits(hh) + ' ' + spellDigits(mm) + ' Zulu';
     });
     text = text.replace(/\b(\d{4})Z\b/g, function (full, digits) {
       return spellDigits(digits) + ' Zulu';
@@ -818,7 +819,7 @@
     // six-digit run otherwise essentially never appears in ATIS text, so
     // this is safe to treat as a timestamp too.
     text = text.replace(/\b(\d{2})(\d{2})(\d{2})\b/g, function (full, day, hh, mm) {
-      return 'day ' + day + ', ' + hh + ' ' + mm + ' Zulu';
+      return 'day ' + spellDigits(day) + ', ' + spellDigits(hh) + ' ' + spellDigits(mm) + ' Zulu';
     });
 
     // Any letter standing alone (info identifier, spelled-out designator,
