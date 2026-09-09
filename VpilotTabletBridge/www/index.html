@@ -102,6 +102,8 @@
   .ctl-category { font-size: 13px; font-weight: 600; color: var(--radio); margin: 10px 0 4px; }
   .ctl-category:first-child { margin-top: 0; }
   .ctl-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; font-size: 13px; color: var(--text); }
+  .ctl-row.clickable { cursor: pointer; border-radius: 4px; padding: 3px 4px; margin: 0 -4px; }
+  .ctl-row.clickable:active { background: var(--row-flash); }
   .ctl-row .freq { color: var(--muted); font-variant-numeric: tabular-nums; }
   .ctl-empty { font-size: 12px; color: var(--muted); padding: 4px 0 0; }
 
@@ -1095,6 +1097,20 @@
         freq.textContent = c.frequency;
         row.appendChild(cs);
         row.appendChild(freq);
+
+        // Tapping an ATIS station requests it directly - it's already the
+        // exact controller callsign, so no need to guess at _A_ATIS/_D_ATIS
+        // variants the way the manual ICAO-only form does - and jumps to
+        // where the result will show up, same as typing it in by hand.
+        if (key === 'ATIS') {
+          row.className = 'ctl-row clickable';
+          row.addEventListener('click', function () {
+            postForm('/api/atis', { callsign: c.callsign });
+            activateTab('messages');
+            activateFilter('WEATHER');
+          });
+        }
+
         container.appendChild(row);
       });
     });
