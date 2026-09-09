@@ -155,11 +155,13 @@ Range list), or METAR otherwise. The departure button only counts a
 combined ATIS or a split departure (`_D_ATIS`) one, and the arrival
 button only a combined or split arrival (`_A_ATIS`) one - each ignores
 the other direction's split ATIS if that's the only one online. Entirely
-optional: leave the CID field
-blank and the buttons never appear. Unlike everything else in this
-plugin, this one feature needs the tablet itself (not just the PC running
-vPilot) to have general internet access, since it talks to VATSIM's feed
-directly rather than through the plugin's own local server.
+optional: leave the CID field blank and this whole area stays hidden. If
+a CID is set but nothing shows up, open the panel and check for a message
+there - either no flight plan was found on VATSIM for that CID, or the
+tablet itself couldn't reach VATSIM's data feed. Unlike everything else in
+this plugin, this one feature needs the tablet itself (not just the PC
+running vPilot) to have general internet access, since it talks to
+VATSIM's feed directly rather than through the plugin's own local server.
 
 Every METAR/ATIS entry has a ▶ button that reads it aloud - in aviation
 phraseology, not a raw letter-by-letter spelling of the METAR code, e.g.

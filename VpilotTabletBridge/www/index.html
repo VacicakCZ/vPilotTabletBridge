@@ -427,6 +427,8 @@
       saveBtn: 'Uložit',
       fplDeparture: 'Odlet',
       fplArrival: 'Přílet',
+      fplNotFound: 'Pro toto CID nebyl na VATSIMu nalezen žádný letový plán.',
+      fplFetchError: 'Nepodařilo se načíst data z VATSIMu - tablet potřebuje pro tuto funkci vlastní připojení k internetu.',
       langLabel: 'Jazyk',
       on: 'Zapnuto', off: 'Vypnuto',
       tabMessages: 'Zprávy', tabNotes: 'Poznámky', tabTraffic: 'Provoz', tabPrivate: 'Private',
@@ -466,6 +468,8 @@
       saveBtn: 'Save',
       fplDeparture: 'Departure',
       fplArrival: 'Arrival',
+      fplNotFound: 'No flight plan found on VATSIM for this CID.',
+      fplFetchError: 'Could not reach VATSIM\'s data feed - this feature needs the tablet itself to have internet access.',
       langLabel: 'Language',
       on: 'On', off: 'Off',
       tabMessages: 'Messages', tabNotes: 'Notes', tabTraffic: 'Traffic', tabPrivate: 'Private',
@@ -1637,12 +1641,25 @@
   }
 
   var lastFpl = null; // { departure, arrival } from the most recent successful fetch, or null
+  var fplStatus = null; // 'notfound' | 'error' - only consulted when lastFpl is null, to explain why
 
   function renderFplButtons() {
     var container = document.getElementById('fplButtons');
     container.innerHTML = '';
-    if (!lastFpl) {
+    if (!vatsimCid()) {
+      // No CID configured at all - stay fully invisible, as before.
       container.hidden = true;
+      return;
+    }
+    if (!lastFpl) {
+      // A CID *is* set but nothing was found for it (or the fetch itself
+      // failed) - say so instead of just silently showing nothing, so this
+      // is diagnosable from the tablet alone rather than looking broken.
+      container.hidden = false;
+      var hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.textContent = t(fplStatus === 'error' ? 'fplFetchError' : 'fplNotFound');
+      container.appendChild(hint);
       return;
     }
     container.hidden = false;
@@ -1692,12 +1709,16 @@
         var entry = (data.pilots || []).concat(data.prefiles || [])
           .find(function (p) { return String(p.cid) === cid && p.flight_plan; });
         lastFpl = entry ? { departure: entry.flight_plan.departure, arrival: entry.flight_plan.arrival } : null;
+        fplStatus = entry ? null : 'notfound';
         renderFplButtons();
       })
       .catch(function () {
         // No/lost internet access on the tablet, or VATSIM's feed is down -
-        // silently leave whatever was last shown rather than erroring out,
-        // since this is a best-effort extra, not core functionality.
+        // keep showing whatever buttons were already up rather than erroring
+        // out (this is a best-effort extra, not core functionality), but if
+        // nothing was ever found yet, explain why instead of staying silent.
+        fplStatus = 'error';
+        renderFplButtons();
       });
   }
 
