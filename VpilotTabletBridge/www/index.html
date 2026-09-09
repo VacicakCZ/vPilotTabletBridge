@@ -768,6 +768,21 @@
       return 'variable between ' + spellDigits(from) + ' and ' + spellDigits(to) + ' degrees';
     });
 
+    // ATIS issue time. "TIME 1920" (word label) is common and, per real
+    // examples, very often has no trailing Z at all - read the digits
+    // regardless. Bare "1820Z" or day-prefixed "091820Z" (METAR-style,
+    // occasionally reused in ATIS text) are unambiguous because of the Z
+    // and are read even without a "TIME" label.
+    text = text.replace(/\bTIME\s+(\d{4})(Z)?\b/gi, function (full, digits, z) {
+      return 'Time ' + spellDigits(digits) + (z ? ' Zulu' : '');
+    });
+    text = text.replace(/\b(\d{2})(\d{2})(\d{2})Z\b/g, function (full, day, hh, mm) {
+      return 'day ' + day + ', ' + hh + ' ' + mm + ' Zulu';
+    });
+    text = text.replace(/\b(\d{4})Z\b/g, function (full, digits) {
+      return spellDigits(digits) + ' Zulu';
+    });
+
     // Any letter standing alone (info identifier, spelled-out designator,
     // etc.) gets read using the phonetic alphabet. This must run before the
     // QNH/ILS/VOR-style abbreviations below, which themselves expand into
