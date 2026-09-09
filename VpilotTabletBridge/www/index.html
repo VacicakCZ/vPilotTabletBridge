@@ -336,8 +336,8 @@
         <div class="filters" id="filters">
           <button data-type="ALL" class="active" data-i18n="filterAll">Vše</button>
           <button data-type="RADIO">Radio</button>
-          <button data-type="SELCAL">SELCAL</button>
           <button data-type="FORME" data-i18n="filterForMe">Pro mě</button>
+          <button data-type="SELCAL">SELCAL</button>
           <button data-type="SYSTEM" data-i18n="filterSystem">Systém</button>
           <button data-type="WEATHER">METAR/ATIS</button>
         </div>
@@ -1676,11 +1676,11 @@
     postForm('/api/ident', {});
     var btn = this;
     btn.classList.add('on');
-    if (identTimer) clearTimeout(identTimer); // a re-tap restarts the 15s rather than cutting it short
+    if (identTimer) clearTimeout(identTimer); // a re-tap restarts the 18s rather than cutting it short
     identTimer = setTimeout(function () {
       btn.classList.remove('on');
       identTimer = null;
-    }, 15000); // matches how long vPilot's own IDENT button stays lit
+    }, 18000); // matches how long vPilot's own IDENT button stays lit
   });
 
   document.getElementById('btnRequestMetar').addEventListener('click', function () {

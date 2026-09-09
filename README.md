@@ -101,10 +101,10 @@ callsign plus how long you've been connected, updated every 30 seconds.
 The **Messages** tab lists radio traffic, broadcasts, SELCAL alerts,
 METAR/ATIS results, and your own connect/disconnect notices - color-coded
 by type. Private messages don't appear here - see "Private conversations"
-below. The filter chips above the list (All / Radio / SELCAL / System /
-METAR/ATIS, plus **For me** - radio calls that actually name your
-callsign, nothing else; SELCAL already has its own filter) narrow it
-down further. New arrivals switch things automatically so
+below. The filter chips above the list (All / Radio / **For me** - radio
+calls that actually name your callsign, nothing else; SELCAL already has
+its own filter / SELCAL / System / METAR/ATIS) narrow it down further.
+New arrivals switch things automatically so
 you don't have to go looking for them: SELCAL takes you to Messages with
 the SELCAL filter, a private message jumps straight to its own
 conversation in the Private tab, a radio call that mentions your own
@@ -223,9 +223,9 @@ vPilot's own app. Mode C turns green while "on" - but that only ever means
 what this tablet last told it, never a confirmed state, since vPilot's
 plugin API doesn't report the transponder's actual state back to plugins.
 It resets to "off" on every page load rather than persisting a guess
-across sessions. IDENT lights up green for 15 seconds after a tap,
+across sessions. IDENT lights up green for 18 seconds after a tap,
 matching how long it stays lit in vPilot itself; tapping it again resets
-that 15 seconds instead of cutting it short.
+that 18 seconds instead of cutting it short.
 
 ### Notes
 
