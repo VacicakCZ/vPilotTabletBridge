@@ -122,6 +122,18 @@ namespace VpilotTabletBridge
             _store.Add("SYSTEM", "Tablet Bridge", "Pamatování volacího znaku: " + (remember ? "zapnuto." : "vypnuto."));
         }
 
+        public void SetModeC(bool on)
+        {
+            _broker.SetModeC(on);
+            _store.Add("SYSTEM", "Tablet Bridge", "Mode C: " + (on ? "zapnuto." : "vypnuto."));
+        }
+
+        public void SquawkIdent()
+        {
+            _broker.SquawkIdent();
+            _store.Add("SYSTEM", "Tablet Bridge", "Odesláno IDENT.");
+        }
+
         public void Send(string mode, string to, string message)
         {
             message = (message ?? "").Trim();

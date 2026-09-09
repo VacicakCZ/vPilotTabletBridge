@@ -207,6 +207,18 @@ namespace VpilotTabletBridge
                 return;
             }
 
+            if (method == "POST" && path == "/api/modec")
+            {
+                RunAction(stream, body, form => _actions.SetModeC(form.Get("on") == "1"));
+                return;
+            }
+
+            if (method == "POST" && path == "/api/ident")
+            {
+                RunAction(stream, body, form => _actions.SquawkIdent());
+                return;
+            }
+
             WriteResponse(stream, "404 Not Found", "text/plain; charset=utf-8", "Not found");
         }
 
