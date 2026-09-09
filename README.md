@@ -223,7 +223,9 @@ vPilot's own app. Mode C turns green while "on" - but that only ever means
 what this tablet last told it, never a confirmed state, since vPilot's
 plugin API doesn't report the transponder's actual state back to plugins.
 It resets to "off" on every page load rather than persisting a guess
-across sessions.
+across sessions. IDENT lights up green for 15 seconds after a tap,
+matching how long it stays lit in vPilot itself; tapping it again resets
+that 15 seconds instead of cutting it short.
 
 ### Notes
 
