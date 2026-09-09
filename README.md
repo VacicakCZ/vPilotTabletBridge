@@ -191,6 +191,20 @@ there's no way to compute a real distance or bearing here. It's simply
 whatever vPilot itself is currently modeling as traffic, which vPilot
 already limits to nearby aircraft before these ever reach a plugin.
 
+### Friends
+
+The **Friends** tab lets you track specific people by VATSIM CID rather
+than whoever happens to be nearby - add a CID (and an optional name) and,
+whenever they're online, their current callsign and route (departure →
+arrival, from their filed flight plan) show up automatically, with a
+**PM** button to jump straight into a conversation with them. Someone not
+currently connected shows as "Offline" - there's no way to message them
+without a live callsign to send to. Sourced from the same VATSIM data
+feed as the flight-plan buttons in Weather, refreshed on the same
+2-minute schedule (one fetch serves both), and needs the same tablet-side
+internet access. Friends are stored locally on that tablet, like every
+other per-device setting here.
+
 ### Notes
 
 A plain scratchpad on the **Notes** tab, saved locally in that tablet's

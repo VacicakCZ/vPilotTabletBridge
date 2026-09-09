@@ -325,6 +325,7 @@
         <button class="active" data-tab="messages" data-i18n="tabMessages">Zprávy</button>
         <button data-tab="private" data-i18n="tabPrivate">Private</button>
         <button data-tab="traffic" data-i18n="tabTraffic">Provoz</button>
+        <button data-tab="friends" data-i18n="tabFriends">Přátelé</button>
         <button data-tab="notes" data-i18n="tabNotes">Poznámky</button>
       </div>
 
@@ -386,6 +387,19 @@
         </div>
       </div>
 
+      <div class="tab-content" id="tabFriends" hidden>
+        <div class="panel-hint" data-i18n="friendsHint">Přidejte VATSIM CID přítele - jakmile bude online, objeví se tu jeho volačka, trasa letu a tlačítko na PM. Vyžaduje připojení k internetu přímo na tabletu.</div>
+        <div class="pm-new-row">
+          <input type="text" id="fFriendCid" inputmode="numeric" data-i18n-placeholder="friendCidPlaceholder" placeholder="CID" style="flex:0 0 90px;">
+          <input type="text" id="fFriendLabel" data-i18n-placeholder="friendLabelPlaceholder" placeholder="Jméno (nepovinné)">
+          <button class="tbtn small" id="btnAddFriend" data-i18n="friendAddBtn">Přidat</button>
+        </div>
+        <div class="list-scroll">
+          <div id="friendsList"></div>
+          <div id="friendsEmpty" style="display:none" data-i18n="friendsEmpty">Zatím žádní přátelé. Přidejte jejich VATSIM CID výše.</div>
+        </div>
+      </div>
+
       <div class="tab-content" id="tabNotes" hidden>
         <div class="notes-wrap">
           <textarea id="notesArea" data-i18n-placeholder="notesPlaceholder" placeholder="Poznámky uložené jen v tomto tabletu (lokálně v prohlížeči)…"></textarea>
@@ -439,6 +453,12 @@
       langLabel: 'Jazyk',
       on: 'Zapnuto', off: 'Vypnuto',
       tabMessages: 'Zprávy', tabNotes: 'Poznámky', tabTraffic: 'Provoz', tabPrivate: 'Private',
+      tabFriends: 'Přátelé',
+      friendsHint: 'Přidejte VATSIM CID přítele - jakmile bude online, objeví se tu jeho volačka, trasa letu a tlačítko na PM. Vyžaduje připojení k internetu přímo na tabletu.',
+      friendCidPlaceholder: 'CID', friendLabelPlaceholder: 'Jméno (nepovinné)', friendAddBtn: 'Přidat',
+      friendsEmpty: 'Zatím žádní přátelé. Přidejte jejich VATSIM CID výše.',
+      friendOffline: 'Offline', friendNoFpl: 'bez letového plánu',
+      friendAlreadyAdded: 'Toto CID už máte v seznamu.', friendRemove: 'Odebrat',
       trafficHint: 'Provoz, který právě modeluje vPilot. Skutečná vzdálenost od vás bohužel není k dispozici - vPilot ji pluginům nedává.',
       trafficEmpty: 'Žádný okolní provoz.',
       filterAll: 'Vše', filterSystem: 'Systém',
@@ -482,6 +502,12 @@
       langLabel: 'Language',
       on: 'On', off: 'Off',
       tabMessages: 'Messages', tabNotes: 'Notes', tabTraffic: 'Traffic', tabPrivate: 'Private',
+      tabFriends: 'Friends',
+      friendsHint: 'Add a friend\'s VATSIM CID - once they\'re online, their callsign, route and a PM button show up here. Needs the tablet itself to have internet access.',
+      friendCidPlaceholder: 'CID', friendLabelPlaceholder: 'Name (optional)', friendAddBtn: 'Add',
+      friendsEmpty: 'No friends added yet. Add their VATSIM CID above.',
+      friendOffline: 'Offline', friendNoFpl: 'no flight plan',
+      friendAlreadyAdded: 'That CID is already on your list.', friendRemove: 'Remove',
       trafficHint: 'Traffic currently modeled by vPilot. Real distance from you isn\'t available - vPilot doesn\'t give plugins that.',
       trafficEmpty: 'No nearby traffic.',
       filterAll: 'All', filterSystem: 'System',
@@ -520,6 +546,7 @@
     refreshSoundsToggle();
     refreshAirportNamesToggle();
     renderFplButtons();
+    renderFriends();
     lastStatusSignature = null; // forces pollStatus to redraw connect/disconnect + remember-callsign text now, not in up to 2s
     pollStatus();
   }
@@ -1039,7 +1066,7 @@
   }
 
   // ---------- tabs ----------
-  var TAB_IDS = { messages: 'tabMessages', private: 'tabPrivate', traffic: 'tabTraffic', notes: 'tabNotes' };
+  var TAB_IDS = { messages: 'tabMessages', private: 'tabPrivate', traffic: 'tabTraffic', friends: 'tabFriends', notes: 'tabNotes' };
   function activateTab(name) {
     document.querySelectorAll('.tabs button').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-tab') === name);
@@ -1705,29 +1732,130 @@
     });
   }
 
-  function fetchFlightPlan() {
+  // ---------- friends (opt-in via friends' VATSIM CIDs) ----------
+  function getFriendsList() {
+    try { return JSON.parse(localStorage.getItem('tabletbridge-friends') || '[]'); } catch (e) { return []; }
+  }
+  function saveFriendsList(list) {
+    try { localStorage.setItem('tabletbridge-friends', JSON.stringify(list)); } catch (e) { /* ignore */ }
+  }
+
+  var lastVatsimPilots = []; // the feed's "pilots" array from the most recent successful fetch
+
+  function renderFriends() {
+    var container = document.getElementById('friendsList');
+    container.innerHTML = '';
+    var friends = getFriendsList();
+    document.getElementById('friendsEmpty').style.display = friends.length === 0 ? 'block' : 'none';
+
+    friends.forEach(function (f) {
+      var pilot = lastVatsimPilots.find(function (p) { return String(p.cid) === f.cid; });
+
+      var row = document.createElement('div');
+      row.className = 'traffic-row';
+
+      var info = document.createElement('div');
+      var title = document.createElement('div');
+      title.className = 'callsign';
+      title.textContent = f.label || ('CID ' + f.cid);
+      var details = document.createElement('div');
+      details.className = 'details';
+      if (pilot) {
+        var fp = pilot.flight_plan;
+        var route = (fp && fp.departure) ? (fp.departure + ' → ' + (fp.arrival || '?')) : t('friendNoFpl');
+        details.textContent = pilot.callsign + ' · ' + route;
+      } else {
+        details.textContent = t('friendOffline');
+      }
+      info.appendChild(title);
+      info.appendChild(details);
+      row.appendChild(info);
+
+      var btnGroup = document.createElement('div');
+      btnGroup.style.display = 'flex';
+      btnGroup.style.gap = '6px';
+
+      if (pilot) {
+        var pmBtn = document.createElement('button');
+        pmBtn.className = 'tbtn small';
+        pmBtn.textContent = 'PM';
+        (function (callsign) {
+          pmBtn.addEventListener('click', function () { openPmConversation(callsign); });
+        })(pilot.callsign);
+        btnGroup.appendChild(pmBtn);
+      }
+
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'tbtn small';
+      removeBtn.textContent = '✕';
+      removeBtn.title = t('friendRemove');
+      (function (cid) {
+        removeBtn.addEventListener('click', function () {
+          saveFriendsList(getFriendsList().filter(function (x) { return x.cid !== cid; }));
+          renderFriends();
+        });
+      })(f.cid);
+      btnGroup.appendChild(removeBtn);
+
+      row.appendChild(btnGroup);
+      container.appendChild(row);
+    });
+  }
+
+  document.getElementById('btnAddFriend').addEventListener('click', function () {
+    var cidInput = document.getElementById('fFriendCid');
+    var labelInput = document.getElementById('fFriendLabel');
+    var cid = cidInput.value.trim();
+    if (!cid) return;
+    var list = getFriendsList();
+    if (list.some(function (f) { return f.cid === cid; })) {
+      showToast(t('friendAlreadyAdded'));
+      return;
+    }
+    list.push({ cid: cid, label: labelInput.value.trim() });
+    saveFriendsList(list);
+    cidInput.value = '';
+    labelInput.value = '';
+    renderFriends();
+    fetchVatsimData(); // check the new friend's status right away instead of waiting up to 2 minutes
+  });
+
+  // ---------- shared VATSIM data feed fetch (own CID + friends' CIDs) ----------
+  // One fetch serves both features rather than hitting data.vatsim.net twice
+  // on the same schedule.
+  function fetchVatsimData() {
     var cid = vatsimCid();
-    if (!cid) {
+    var hasFriends = getFriendsList().length > 0;
+    if (!cid && !hasFriends) {
       lastFpl = null;
+      lastVatsimPilots = [];
       renderFplButtons();
+      renderFriends();
       return;
     }
     fetch('https://data.vatsim.net/v3/vatsim-data.json', { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        var entry = (data.pilots || []).concat(data.prefiles || [])
-          .find(function (p) { return String(p.cid) === cid && p.flight_plan; });
-        lastFpl = entry ? { departure: entry.flight_plan.departure, arrival: entry.flight_plan.arrival } : null;
-        fplStatus = entry ? null : 'notfound';
+        lastVatsimPilots = data.pilots || [];
+        if (cid) {
+          var entry = lastVatsimPilots.concat(data.prefiles || [])
+            .find(function (p) { return String(p.cid) === cid && p.flight_plan; });
+          lastFpl = entry ? { departure: entry.flight_plan.departure, arrival: entry.flight_plan.arrival } : null;
+          fplStatus = entry ? null : 'notfound';
+        } else {
+          lastFpl = null;
+        }
         renderFplButtons();
+        renderFriends();
       })
       .catch(function () {
         // No/lost internet access on the tablet, or VATSIM's feed is down -
-        // keep showing whatever buttons were already up rather than erroring
-        // out (this is a best-effort extra, not core functionality), but if
+        // keep showing whatever was already up rather than erroring out
+        // (this is a best-effort extra, not core functionality), but if
         // nothing was ever found yet, explain why instead of staying silent.
         fplStatus = 'error';
         renderFplButtons();
+        renderFriends();
       });
   }
 
@@ -1736,10 +1864,11 @@
     var cid = document.getElementById('fVatsimCid').value.trim();
     try { localStorage.setItem('tabletbridge-vatsim-cid', cid); } catch (e) { /* ignore */ }
     showToast(t(cid ? 'cidSaved' : 'cidCleared'));
-    fetchFlightPlan();
+    fetchVatsimData();
   });
-  fetchFlightPlan();
-  setInterval(fetchFlightPlan, 120000); // flight plans rarely change - no need to hammer VATSIM's feed
+  renderFriends();
+  fetchVatsimData();
+  setInterval(fetchVatsimData, 120000); // flight plans rarely change - no need to hammer VATSIM's feed
 
   document.getElementById('btnSettings').addEventListener('click', function () {
     togglePanel('settingsPanel');
