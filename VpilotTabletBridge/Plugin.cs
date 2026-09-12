@@ -213,7 +213,7 @@ namespace VpilotTabletBridge
 
         private static List<string> GetLocalIPv4Addresses()
         {
-            var results = new List<string>();
+            var candidates = new List<CandidateAddress>();
             try
             {
                 foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
@@ -221,11 +221,13 @@ namespace VpilotTabletBridge
                     if (ni.OperationalStatus != OperationalStatus.Up) continue;
                     if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
 
+                    bool likelyVirtual = IsLikelyVirtualAdapter(ni);
+
                     foreach (UnicastIPAddressInformation addr in ni.GetIPProperties().UnicastAddresses)
                     {
                         if (addr.Address.AddressFamily == AddressFamily.InterNetwork)
                         {
-                            results.Add(addr.Address.ToString());
+                            candidates.Add(new CandidateAddress { Ip = addr.Address.ToString(), LikelyVirtual = likelyVirtual });
                         }
                     }
                 }
@@ -235,7 +237,7 @@ namespace VpilotTabletBridge
                 // Best effort only; fall through to the loopback fallback below.
             }
 
-            if (results.Count == 0) results.Add("127.0.0.1");
+            if (candidates.Count == 0) candidates.Add(new CandidateAddress { Ip = "127.0.0.1", LikelyVirtual = false });
 
             // NetworkInterface.GetAllNetworkInterfaces() doesn't order these
             // usefully - a Tailscale/other VPN adapter (100.64.0.0/10) or a
@@ -243,9 +245,48 @@ namespace VpilotTabletBridge
             // home-LAN address a tablet on the same Wi-Fi can reach. Only
             // matters cosmetically for the plain text list, but it matters a
             // lot for the QR code, which can only encode one address - so
-            // sort real home-LAN ranges first.
-            results.Sort((a, b) => AddressPriority(a).CompareTo(AddressPriority(b)));
+            // sort real home-LAN ranges first, and push anything that *looks*
+            // virtual (by adapter name) to the back even if its IP happens to
+            // land in a private range too - VirtualBox's default host-only
+            // adapter is 192.168.56.x, Hyper-V's "Default Switch" is commonly
+            // a 172.x address, either of which would otherwise tie with a
+            // genuine home-LAN address of the same class and could easily win
+            // the tie (a user reported exactly this symptom: the shipped DLL
+            // "only worked on the developer's machine" until they rebuilt -
+            // almost certainly them hitting the pre-sort/pre-this-check
+            // version of this method, not a build-time/machine-baked address).
+            candidates.Sort((a, b) => CombinedPriority(a).CompareTo(CombinedPriority(b)));
+
+            var results = new List<string>();
+            foreach (CandidateAddress c in candidates) results.Add(c.Ip);
+
+            // Escape hatch for the rare case where the heuristic above still
+            // guesses wrong: an optional "IP=x.x.x.x" line in TabletBridge.ini
+            // (same file/format as Port=, see LoadPort) forces that address
+            // to the front - i.e. what the QR code and .debug/log output lead
+            // with - without turning off automatic detection for the rest of
+            // the list (still used for the "Other addresses" fallback on the
+            // /qr page).
+            string overrideIp = LoadIpOverride();
+            if (overrideIp != null)
+            {
+                results.Remove(overrideIp);
+                results.Insert(0, overrideIp);
+            }
+
             return results;
+        }
+
+        private class CandidateAddress
+        {
+            public string Ip;
+            public bool LikelyVirtual;
+        }
+
+        private static int CombinedPriority(CandidateAddress c)
+        {
+            int basePriority = AddressPriority(c.Ip);
+            return c.LikelyVirtual ? basePriority + 10 : basePriority;
         }
 
         private static int AddressPriority(string ip)
@@ -261,16 +302,80 @@ namespace VpilotTabletBridge
             return 3; // includes Tailscale's 100.64.0.0/10 and anything else
         }
 
+        /// <summary>
+        /// Best-effort check for adapters that are virtual/tunnel interfaces
+        /// rather than a physical link to the home LAN, by name/description
+        /// rather than by IP range - a numeric range alone can't tell a real
+        /// home-LAN address apart from e.g. a VirtualBox host-only adapter,
+        /// which also defaults to a 192.168.x.x address.
+        /// </summary>
+        private static bool IsLikelyVirtualAdapter(NetworkInterface ni)
+        {
+            string text = ((ni.Description ?? "") + " " + (ni.Name ?? "")).ToLowerInvariant();
+            string[] markers =
+            {
+                "virtualbox", "vmware", "hyper-v", "virtual switch", "wsl",
+                "docker", "tailscale", "zerotier", "tap-windows", "tap adapter"
+            };
+            foreach (string marker in markers)
+            {
+                if (text.Contains(marker)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Reads an optional "IP=x.x.x.x" line from TabletBridge.ini next to
+        /// the plugin DLL (same file as Port=, see LoadPort) - an escape
+        /// hatch for whoever the automatic detection above still picks the
+        /// wrong address for. When present and a syntactically valid IPv4
+        /// address, GetLocalIPv4Addresses moves it to the front of the
+        /// detected list rather than replacing the list outright, so the
+        /// rest of the detected addresses are still available as a fallback.
+        /// </summary>
+        private static string LoadIpOverride()
+        {
+            try
+            {
+                string pluginDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                string iniPath = Path.Combine(pluginDir ?? "", "TabletBridge.ini");
+                if (!File.Exists(iniPath)) return null;
+
+                foreach (string rawLine in File.ReadAllLines(iniPath))
+                {
+                    string line = rawLine.Trim();
+                    if (!line.StartsWith("IP", StringComparison.OrdinalIgnoreCase)) continue;
+
+                    string[] kv = line.Split('=');
+                    if (kv.Length != 2) continue;
+
+                    string candidate = kv[1].Trim();
+                    if (System.Net.IPAddress.TryParse(candidate, out System.Net.IPAddress parsed) &&
+                        parsed.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        return parsed.ToString();
+                    }
+                }
+            }
+            catch
+            {
+                // Malformed or unreadable config: fall back to automatic detection only.
+            }
+            return null;
+        }
+
         private void OnNetworkConnected(object sender, NetworkConnectedEventArgs e)
         {
             _state.SetConnected(true, e.Callsign);
-            _store.Add("SYSTEM", "vPilot", "Connected to network as " + e.Callsign + ".");
+            _store.Add("SYSTEM", "vPilot", _state.Localize(
+                "Připojen k síti jako " + e.Callsign + ".",
+                "Connected to network as " + e.Callsign + "."));
         }
 
         private void OnNetworkDisconnected(object sender, EventArgs e)
         {
             _state.SetConnected(false, null);
-            _store.Add("SYSTEM", "vPilot", "Disconnected from network.");
+            _store.Add("SYSTEM", "vPilot", _state.Localize("Odpojen od sítě.", "Disconnected from network."));
         }
 
         private void OnRadioMessageReceived(object sender, RadioMessageReceivedEventArgs e)

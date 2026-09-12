@@ -32,6 +32,14 @@ namespace VpilotTabletBridge
         private string _lastTypeCode = "";
         private string _lastSelcal = "";
 
+        // Mirrors the tablet's CS/EN toggle (see index.html's postForm/currentLang),
+        // sent on every action POST - kept here, not just passed per-call, so
+        // SYSTEM messages triggered by a vPilot-side event with no HTTP request
+        // in flight (e.g. connecting from vPilot's own window) still pick the
+        // right language rather than defaulting to English every time. Defaults
+        // to Czech, matching the tablet page's own default.
+        private string _language = "cs";
+
         private readonly string _prefillPath;
 
         public PluginState()
@@ -70,6 +78,19 @@ namespace VpilotTabletBridge
                 if (!remember) _lastCallsign = ""; // forget immediately, don't wait for the next connect
             }
             SavePrefill();
+        }
+
+        /// <summary>Records the tablet's current UI language, sent on every action POST. Ignores an empty/missing value rather than resetting to Czech.</summary>
+        public void SetLanguage(string lang)
+        {
+            if (string.IsNullOrEmpty(lang)) return;
+            lock (_lock) { _language = lang; }
+        }
+
+        /// <summary>Picks the Czech or English variant of a server-generated string based on the last-seen UI language. Defaults to Czech, same as the tablet page's own default.</summary>
+        public string Localize(string cs, string en)
+        {
+            lock (_lock) { return string.Equals(_language, "en", StringComparison.OrdinalIgnoreCase) ? en : cs; }
         }
 
         public string ToJson()

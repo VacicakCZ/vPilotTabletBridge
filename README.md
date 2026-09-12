@@ -345,7 +345,7 @@ prompt but the tablet still can't connect, add a rule manually:
 New-NetFirewallRule -DisplayName "vPilot Tablet Bridge" -Direction Inbound -Protocol TCP -LocalPort 8686 -Action Allow -Profile Private
 ```
 
-## Changing the port
+## Changing the port, or forcing a specific address
 
 Default port is `8686`. To use a different one, create
 `%LocalAppData%\vPilot\Plugins\TabletBridge.ini` with:
@@ -355,6 +355,27 @@ Port=8686
 ```
 
 and restart vPilot.
+
+The plugin auto-detects your PC's LAN address(es) at every startup - it is
+not baked in at build time, so a pre-built DLL from the Releases page works
+on any PC, not just the one it was built on. Home-LAN ranges
+(`192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`) are preferred over a VPN
+adapter (e.g. Tailscale) or a WSL/Hyper-V virtual switch for the address
+shown first / encoded in the QR code, and adapters that are recognizably
+virtual by name are pushed to the back even if their address happens to
+also be in a private range (e.g. VirtualBox's default host-only adapter,
+which is `192.168.56.x` by default). If none of that lands on the right
+address for your setup, add an `IP=` line to the same `TabletBridge.ini` to
+force it:
+
+```ini
+Port=8686
+IP=192.168.1.50
+```
+
+and restart vPilot. Check `.debug` or `TabletBridge-debug.log` (see
+"Installation" above) to see every address the plugin actually detected if
+you're not sure which one to use.
 
 ## Project layout
 

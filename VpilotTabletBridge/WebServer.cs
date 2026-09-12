@@ -181,49 +181,49 @@ namespace VpilotTabletBridge
 
             if (method == "POST" && path == "/api/connect")
             {
-                RunAction(stream, body, form => _actions.Connect(form.Get("callsign"), form.Get("typeCode"), form.Get("selcal")));
+                RunAction(stream, body, form => _actions.Connect(form.Get("callsign"), form.Get("typeCode"), form.Get("selcal"), form.Get("lang")));
                 return;
             }
 
             if (method == "POST" && path == "/api/disconnect")
             {
-                RunAction(stream, body, form => _actions.Disconnect());
+                RunAction(stream, body, form => _actions.Disconnect(form.Get("lang")));
                 return;
             }
 
             if (method == "POST" && path == "/api/metar")
             {
-                RunAction(stream, body, form => _actions.RequestMetar(form.Get("station")));
+                RunAction(stream, body, form => _actions.RequestMetar(form.Get("station"), form.Get("lang")));
                 return;
             }
 
             if (method == "POST" && path == "/api/atis")
             {
-                RunAction(stream, body, form => _actions.RequestAtis(form.Get("callsign")));
+                RunAction(stream, body, form => _actions.RequestAtis(form.Get("callsign"), form.Get("lang")));
                 return;
             }
 
             if (method == "POST" && path == "/api/settings")
             {
-                RunAction(stream, body, form => _actions.SetRememberCallsign(form.Get("rememberCallsign") == "1"));
+                RunAction(stream, body, form => _actions.SetRememberCallsign(form.Get("rememberCallsign") == "1", form.Get("lang")));
                 return;
             }
 
             if (method == "POST" && path == "/api/send")
             {
-                RunAction(stream, body, form => _actions.Send(form.Get("mode"), form.Get("to"), form.Get("message")));
+                RunAction(stream, body, form => _actions.Send(form.Get("mode"), form.Get("to"), form.Get("message"), form.Get("lang")));
                 return;
             }
 
             if (method == "POST" && path == "/api/modec")
             {
-                RunAction(stream, body, form => _actions.SetModeC(form.Get("on") == "1"));
+                RunAction(stream, body, form => _actions.SetModeC(form.Get("on") == "1", form.Get("lang")));
                 return;
             }
 
             if (method == "POST" && path == "/api/ident")
             {
-                RunAction(stream, body, form => _actions.SquawkIdent());
+                RunAction(stream, body, form => _actions.SquawkIdent(form.Get("lang")));
                 return;
             }
 
@@ -234,7 +234,14 @@ namespace VpilotTabletBridge
         {
             try
             {
-                action(FormData.Parse(body));
+                FormData form = FormData.Parse(body);
+                // Every action POST carries the tablet's current UI language
+                // (see postForm() in index.html) - remember it here so that
+                // SYSTEM messages triggered later by a vPilot-side event with
+                // no request in flight (e.g. NetworkConnected firing because
+                // someone connected from vPilot's own window) still use it.
+                _state.SetLanguage(form.Get("lang"));
+                action(form);
                 WriteResponse(stream, "200 OK", "application/json; charset=utf-8", "{\"ok\":true}");
             }
             catch (Exception ex)
