@@ -13,3 +13,6 @@ lib/*.xml
 TabletBridge-debug.log
 TabletBridge-connect.ini
 TabletBridge-qr-shown.flag
+
+# Local-only AI/dev context file - must never be committed (user instruction).
+CLAUDE.md
