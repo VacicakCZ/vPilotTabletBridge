@@ -310,7 +310,7 @@
     <div class="settings-row">
       <span data-i18n="langLabel">Jazyk</span>
       <div style="display:flex; gap:6px;">
-        <button class="tbtn" id="btnLangCs">CS</button>
+        <button class="tbtn" id="btnLangApp" data-i18n="langAppBtn" data-i18n-title="langAppTitle">Podle aplikace</button>
         <button class="tbtn" id="btnLangEn">EN</button>
       </div>
     </div>
@@ -458,6 +458,8 @@
       cidSaved: 'CID uloženo.',
       cidCleared: 'CID vymazáno.',
       langLabel: 'Jazyk',
+      langAppBtn: 'Podle aplikace',
+      langAppTitle: 'Jazyk se převezme z aplikace FlightOps Hub (stránka Companion). Když je tato stránka otevřená mimo ni, použije se angličtina.',
       on: 'Zapnuto', off: 'Vypnuto',
       tabMessages: 'Zprávy', tabNotes: 'Poznámky', tabTraffic: 'Provoz', tabPrivate: 'Private',
       tabFriends: 'Přátelé',
@@ -511,6 +513,8 @@
       cidSaved: 'CID saved.',
       cidCleared: 'CID cleared.',
       langLabel: 'Language',
+      langAppBtn: 'Follow app',
+      langAppTitle: 'Takes the language from the FlightOps Hub app (its Companion page). When this page is opened outside it, English is used.',
       on: 'On', off: 'Off',
       tabMessages: 'Messages', tabNotes: 'Notes', tabTraffic: 'Traffic', tabPrivate: 'Private',
       tabFriends: 'Friends',
@@ -535,14 +539,203 @@
       confirmDisconnect: 'Disconnect from the VATSIM network?',
       lastUsedAircraft: 'Last used',
       speakTitle: 'Read aloud', stopTitle: 'Stop playback'
+    },
+    // German, Spanish and Chinese (Simplified) are AI-translated, like the
+    // same three languages in FlightOps Hub itself - the two hand-written
+    // reference languages are Czech and English above. Keys missing from
+    // one of these fall back to English (see t()).
+    de: {
+      connect: 'Verbinden', disconnect: 'Trennen', disconnected: 'Getrennt',
+      serverStatusTitle: 'Status des eigenen Servers', settingsTitle: 'Einstellungen',
+      modeCBtn: 'Mode C',
+      modeCTitle: 'Mode C ist ein einmaliger Befehl - vPilot teilt Plugins den tatsächlichen Zustand des Transponders nicht mit.',
+      identBtn: 'IDENT',
+      connectHint: 'Rufzeichen, Flugzeugtyp (ICAO) und optional SELCAL - die zuletzt verwendeten Werte werden vorausgefüllt.',
+      callsignPlaceholder: 'Rufzeichen (z. B. OK1ABC)',
+      typeCodePlaceholder: 'Flugzeugtyp (ICAO-Code, z. B. A320)',
+      selcalPlaceholder: 'SELCAL (optional)',
+      connectSubmit: 'Verbinden',
+      weatherHint: 'Beides erfordert nur den ICAO-Code eines Flughafens (z. B. LKPR). Bei ATIS werden auch getrennte Arrival- und Departure-ATIS gesucht, falls der Flughafen sie so aufteilt. Das Ergebnis erscheint im Nachrichtenlog unter dem Filter „METAR/ATIS“.',
+      metarPlaceholder: 'METAR - Flughafen-ICAO (z. B. LKPR)',
+      atisPlaceholder: 'ATIS - Flughafen-ICAO (z. B. LKPR)',
+      settingsHint: 'Tablet-Einstellungen',
+      rememberCallsignLabel: 'Rufzeichen zwischen Verbindungen merken',
+      soundsLabel: 'Töne bei neuen Nachrichten',
+      airportNamesLabel: 'Flughafennamen bei METAR/ATIS vorlesen',
+      vatsimCidLabel: 'VATSIM-CID (für Flugplan-Schaltflächen)',
+      vatsimCidPlaceholder: 'CID (optional)',
+      saveBtn: 'Speichern',
+      fplDeparture: 'Abflug',
+      fplArrival: 'Ankunft',
+      fplNotFound: 'Für diese CID wurde bei VATSIM kein Flugplan gefunden.',
+      fplFetchError: 'Der VATSIM-Datenfeed war nicht erreichbar - für diese Funktion braucht das Tablet selbst Internetzugang.',
+      cidSaved: 'CID gespeichert.',
+      cidCleared: 'CID gelöscht.',
+      langLabel: 'Sprache',
+      langAppBtn: 'Der App folgen',
+      langAppTitle: 'Übernimmt die Sprache aus der App FlightOps Hub (deren Companion-Seite). Wird diese Seite außerhalb davon geöffnet, wird Englisch verwendet.',
+      on: 'Ein', off: 'Aus',
+      tabMessages: 'Nachrichten', tabNotes: 'Notizen', tabTraffic: 'Verkehr', tabPrivate: 'Privat',
+      tabFriends: 'Freunde',
+      friendsHint: 'Fügen Sie die VATSIM-CID eines Freundes hinzu - sobald er online ist, erscheinen hier sein Rufzeichen, die Route und eine PM-Schaltfläche. Erfordert Internetzugang direkt am Tablet.',
+      friendCidPlaceholder: 'CID', friendLabelPlaceholder: 'Name (optional)', friendAddBtn: 'Hinzufügen',
+      friendsEmpty: 'Noch keine Freunde hinzugefügt. Fügen Sie oben deren VATSIM-CID hinzu.',
+      friendOffline: 'Offline', friendNoFpl: 'kein Flugplan',
+      friendAlreadyAdded: 'Diese CID steht bereits auf Ihrer Liste.', friendRemove: 'Entfernen',
+      friendCameOnline: 'ist jetzt online.',
+      trafficHint: 'Verkehr, den vPilot gerade darstellt. Die tatsächliche Entfernung zu Ihnen ist nicht verfügbar - vPilot gibt sie nicht an Plugins weiter.',
+      trafficEmpty: 'Kein Verkehr in der Nähe.',
+      filterAll: 'Alle', filterSystem: 'System', filterForMe: 'Für mich',
+      emptyMessages: 'Noch keine Nachrichten.',
+      msgCmdHint: 'Tipp: .msg RUFZEICHEN Nachricht eingeben, um eine private Nachricht zu senden',
+      replyPlaceholder: 'Nachricht eingeben…',
+      sendBtn: 'Senden',
+      notesPlaceholder: 'Notizen, die nur auf diesem Tablet gespeichert werden (lokal im Browser)…',
+      pmNewPlaceholder: 'Neuer Chat - Rufzeichen',
+      pmOpenBtn: 'Öffnen',
+      pmEmpty: 'Noch keine privaten Unterhaltungen. Öffnen Sie oben eine neue oder geben Sie .msg RUFZEICHEN Text in das Hauptfeld unter Nachrichten ein.',
+      actionFailed: 'Aktion fehlgeschlagen.', serverNotResponding: 'Server antwortet nicht.',
+      confirmDisconnect: 'Vom VATSIM-Netzwerk trennen?',
+      lastUsedAircraft: 'Zuletzt verwendet',
+      speakTitle: 'Vorlesen', stopTitle: 'Wiedergabe stoppen'
+    },
+    es: {
+      connect: 'Conectar', disconnect: 'Desconectar', disconnected: 'Desconectado',
+      serverStatusTitle: 'Estado del servidor propio', settingsTitle: 'Ajustes',
+      modeCBtn: 'Mode C',
+      modeCTitle: 'Mode C es un comando de un solo disparo: vPilot no informa a los plugins del estado real del transpondedor.',
+      identBtn: 'IDENT',
+      connectHint: 'Indicativo, tipo de aeronave (ICAO) y SELCAL opcional: se rellenan con los últimos valores usados.',
+      callsignPlaceholder: 'Indicativo (p. ej. OK1ABC)',
+      typeCodePlaceholder: 'Tipo de aeronave (código ICAO, p. ej. A320)',
+      selcalPlaceholder: 'SELCAL (opcional)',
+      connectSubmit: 'Conectar',
+      weatherHint: 'Ambos solo necesitan el código ICAO de un aeropuerto (p. ej. LKPR). Con ATIS también se buscan por separado el ATIS de llegada y el de salida, si el aeropuerto los divide así. El resultado aparece en el registro de mensajes, con el filtro "METAR/ATIS".',
+      metarPlaceholder: 'METAR - ICAO del aeropuerto (p. ej. LKPR)',
+      atisPlaceholder: 'ATIS - ICAO del aeropuerto (p. ej. LKPR)',
+      settingsHint: 'Ajustes de la tablet',
+      rememberCallsignLabel: 'Recordar el indicativo entre conexiones',
+      soundsLabel: 'Sonidos con mensajes nuevos',
+      airportNamesLabel: 'Leer el nombre del aeropuerto en METAR/ATIS',
+      vatsimCidLabel: 'CID de VATSIM (para los botones del plan de vuelo)',
+      vatsimCidPlaceholder: 'CID (opcional)',
+      saveBtn: 'Guardar',
+      fplDeparture: 'Salida',
+      fplArrival: 'Llegada',
+      fplNotFound: 'No se encontró ningún plan de vuelo en VATSIM para este CID.',
+      fplFetchError: 'No se pudo acceder a los datos de VATSIM: esta función necesita que la propia tablet tenga acceso a internet.',
+      cidSaved: 'CID guardado.',
+      cidCleared: 'CID borrado.',
+      langLabel: 'Idioma',
+      langAppBtn: 'Seguir la app',
+      langAppTitle: 'Toma el idioma de la app FlightOps Hub (su página Companion). Si esta página se abre fuera de ella, se usa inglés.',
+      on: 'Activado', off: 'Desactivado',
+      tabMessages: 'Mensajes', tabNotes: 'Notas', tabTraffic: 'Tráfico', tabPrivate: 'Privado',
+      tabFriends: 'Amigos',
+      friendsHint: 'Añade el CID de VATSIM de un amigo: cuando esté en línea, aquí aparecerán su indicativo, su ruta y un botón de MP. Requiere que la propia tablet tenga acceso a internet.',
+      friendCidPlaceholder: 'CID', friendLabelPlaceholder: 'Nombre (opcional)', friendAddBtn: 'Añadir',
+      friendsEmpty: 'Aún no has añadido amigos. Añade arriba su CID de VATSIM.',
+      friendOffline: 'Offline', friendNoFpl: 'sin plan de vuelo',
+      friendAlreadyAdded: 'Ese CID ya está en tu lista.', friendRemove: 'Quitar',
+      friendCameOnline: 'está ahora en línea.',
+      trafficHint: 'Tráfico que vPilot está modelando ahora mismo. La distancia real a ti no está disponible: vPilot no se la da a los plugins.',
+      trafficEmpty: 'Sin tráfico cercano.',
+      filterAll: 'Todo', filterSystem: 'Sistema', filterForMe: 'Para mí',
+      emptyMessages: 'Aún no hay mensajes.',
+      msgCmdHint: 'Consejo: escribe .msg INDICATIVO mensaje para enviar un mensaje privado',
+      replyPlaceholder: 'Escribe un mensaje…',
+      sendBtn: 'Enviar',
+      notesPlaceholder: 'Notas guardadas solo en esta tablet (localmente en el navegador)…',
+      pmNewPlaceholder: 'Nuevo chat - indicativo',
+      pmOpenBtn: 'Abrir',
+      pmEmpty: 'Aún no hay conversaciones privadas. Abre una nueva arriba o escribe .msg INDICATIVO texto en el campo principal de Mensajes.',
+      actionFailed: 'La acción falló.', serverNotResponding: 'El servidor no responde.',
+      confirmDisconnect: '¿Desconectar de la red VATSIM?',
+      lastUsedAircraft: 'Último usado',
+      speakTitle: 'Leer en voz alta', stopTitle: 'Detener la reproducción'
+    },
+    zh: {
+      connect: '连接', disconnect: '断开', disconnected: '已断开',
+      serverStatusTitle: '自带服务器状态', settingsTitle: '设置',
+      modeCBtn: 'Mode C',
+      modeCTitle: 'Mode C 是一次性指令 - vPilot 不会告知插件应答机的实际状态。',
+      identBtn: 'IDENT',
+      connectHint: '呼号、机型（ICAO）和可选的 SELCAL - 会自动填入上次使用的值。',
+      callsignPlaceholder: '呼号（例如 OK1ABC）',
+      typeCodePlaceholder: '机型（ICAO 代码，例如 A320）',
+      selcalPlaceholder: 'SELCAL（可选）',
+      connectSubmit: '连接',
+      weatherHint: '两者都只需输入机场 ICAO 代码（例如 LKPR）。查询 ATIS 时，如果机场将到达和离场 ATIS 分开发布，也会分别查找。结果会显示在消息日志的“METAR/ATIS”筛选下。',
+      metarPlaceholder: 'METAR - 机场 ICAO（例如 LKPR）',
+      atisPlaceholder: 'ATIS - 机场 ICAO（例如 LKPR）',
+      settingsHint: '平板设置',
+      rememberCallsignLabel: '在多次连接之间记住呼号',
+      soundsLabel: '新消息提示音',
+      airportNamesLabel: '在 METAR/ATIS 中朗读机场名称',
+      vatsimCidLabel: 'VATSIM CID（用于飞行计划按钮）',
+      vatsimCidPlaceholder: 'CID（可选）',
+      saveBtn: '保存',
+      fplDeparture: '离场',
+      fplArrival: '到达',
+      fplNotFound: '在 VATSIM 上未找到此 CID 的飞行计划。',
+      fplFetchError: '无法访问 VATSIM 数据源 - 此功能需要平板本身能够联网。',
+      cidSaved: 'CID 已保存。',
+      cidCleared: 'CID 已清除。',
+      langLabel: '语言',
+      langAppBtn: '跟随应用',
+      langAppTitle: '语言取自 FlightOps Hub 应用（其 Companion 页面）。在其之外打开此页面时，将使用英语。',
+      on: '开', off: '关',
+      tabMessages: '消息', tabNotes: '笔记', tabTraffic: '交通', tabPrivate: '私信',
+      tabFriends: '好友',
+      friendsHint: '添加好友的 VATSIM CID - 好友上线后，这里会显示其呼号、航线和私信按钮。需要平板本身能够联网。',
+      friendCidPlaceholder: 'CID', friendLabelPlaceholder: '名称（可选）', friendAddBtn: '添加',
+      friendsEmpty: '尚未添加好友。请在上方添加其 VATSIM CID。',
+      friendOffline: '离线', friendNoFpl: '无飞行计划',
+      friendAlreadyAdded: '该 CID 已在你的列表中。', friendRemove: '移除',
+      friendCameOnline: '现已上线。',
+      trafficHint: 'vPilot 当前模拟的交通。无法获得与你的实际距离 - vPilot 不会向插件提供该信息。',
+      trafficEmpty: '附近没有交通。',
+      filterAll: '全部', filterSystem: '系统', filterForMe: '给我',
+      emptyMessages: '暂无消息。',
+      msgCmdHint: '提示：输入 .msg 呼号 消息 可发送私信',
+      replyPlaceholder: '输入消息…',
+      sendBtn: '发送',
+      notesPlaceholder: '笔记仅保存在此平板上（本地保存在浏览器中）…',
+      pmNewPlaceholder: '新聊天 - 呼号',
+      pmOpenBtn: '打开',
+      pmEmpty: '暂无私信会话。请在上方新建一个，或在“消息”主输入框中输入 .msg 呼号 文本。',
+      actionFailed: '操作失败。', serverNotResponding: '服务器无响应。',
+      confirmDisconnect: '断开与 VATSIM 网络的连接？',
+      lastUsedAircraft: '上次使用',
+      speakTitle: '朗读', stopTitle: '停止播放'
     }
   };
 
-  var currentLang = 'cs';
-  try { currentLang = localStorage.getItem('tabletbridge-lang') || 'cs'; } catch (e) { /* ignore */ }
+  // The language setting is 'app' or 'en'. 'app' follows the language
+  // FlightOps Hub's Companion page hands over in the URL (?lang=cs, added to
+  // the iframe it embeds this page in - "cs", "en", "de", "es" or "zh-CN",
+  // the same five languages the app has); 'en' is always English. 'app' has
+  // nothing to follow - so it shows English - when this page is opened
+  // directly (no ?lang=) or the hint is a language this page has no
+  // translation for. Stored under the same key the old CS/EN toggle used: a
+  // stored 'en' keeps its meaning, a stored 'cs' (or nothing) becomes 'app',
+  // which is Czech again whenever Companion says so.
+  var langMode = 'app';
+  try { langMode = localStorage.getItem('tabletbridge-lang') === 'en' ? 'en' : 'app'; } catch (e) { /* ignore */ }
+  var appLangHint = '';
+  try { appLangHint = (new URLSearchParams(location.search).get('lang') || '').toLowerCase().split('-')[0]; } catch (e) { /* ignore */ }
+
+  // The language actually shown - always a key of I18N (hasOwnProperty, so a
+  // hint like "constructor" can't slip through).
+  var currentLang = 'en';
+  function resolveLang() {
+    var followApp = langMode === 'app' && Object.prototype.hasOwnProperty.call(I18N, appLangHint);
+    currentLang = followApp ? appLangHint : 'en';
+  }
+  resolveLang();
 
   function t(key) {
-    return (I18N[currentLang] && I18N[currentLang][key]) || I18N.cs[key] || key;
+    return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || I18N.cs[key] || key;
   }
 
   function applyTranslations() {
@@ -551,8 +744,8 @@
     document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) { el.placeholder = t(el.getAttribute('data-i18n-placeholder')); });
     document.querySelectorAll('[data-i18n-title]').forEach(function (el) { el.title = t(el.getAttribute('data-i18n-title')); });
 
-    document.getElementById('btnLangCs').className = 'tbtn' + (currentLang === 'cs' ? ' on' : '');
-    document.getElementById('btnLangEn').className = 'tbtn' + (currentLang === 'en' ? ' on' : '');
+    document.getElementById('btnLangApp').className = 'tbtn' + (langMode === 'app' ? ' on' : '');
+    document.getElementById('btnLangEn').className = 'tbtn' + (langMode === 'en' ? ' on' : '');
 
     // A few dynamic bits aren't plain data-i18n text and need refreshing too.
     refreshSoundsToggle();
@@ -563,9 +756,10 @@
     pollStatus();
   }
 
-  function setLang(lang) {
-    currentLang = lang;
-    try { localStorage.setItem('tabletbridge-lang', lang); } catch (e) { /* ignore */ }
+  function setLangMode(mode) {
+    langMode = mode;
+    try { localStorage.setItem('tabletbridge-lang', mode); } catch (e) { /* ignore */ }
+    resolveLang();
     applyTranslations();
   }
 
@@ -1066,7 +1260,7 @@
   function postForm(path, data) {
     var params = new URLSearchParams();
     Object.keys(data).forEach(function (k) { params.append(k, data[k]); });
-    params.append('lang', currentLang); // so server-generated SYSTEM/error text matches the UI language toggle
+    params.append('lang', currentLang); // so server-generated SYSTEM/error text matches the UI language (see Localizer.cs)
     return fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -2000,8 +2194,8 @@
     refreshAirportNamesToggle();
   });
 
-  document.getElementById('btnLangCs').addEventListener('click', function () { setLang('cs'); });
-  document.getElementById('btnLangEn').addEventListener('click', function () { setLang('en'); });
+  document.getElementById('btnLangApp').addEventListener('click', function () { setLangMode('app'); });
+  document.getElementById('btnLangEn').addEventListener('click', function () { setLangMode('en'); });
 
   // ---------- keep the screen awake ----------
   // Needs a "secure context" (HTTPS, or localhost) per spec - on a plain

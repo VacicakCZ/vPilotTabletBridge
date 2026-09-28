@@ -369,13 +369,18 @@ namespace VpilotTabletBridge
             _state.SetConnected(true, e.Callsign);
             _store.Add("SYSTEM", "vPilot", _state.Localize(
                 "Připojen k síti jako " + e.Callsign + ".",
-                "Connected to network as " + e.Callsign + "."));
+                "Connected to network as " + e.Callsign + ".",
+                "Mit dem Netzwerk verbunden als " + e.Callsign + ".",
+                "Conectado a la red como " + e.Callsign + ".",
+                "已作为 " + e.Callsign + " 连接到网络。"));
         }
 
         private void OnNetworkDisconnected(object sender, EventArgs e)
         {
             _state.SetConnected(false, null);
-            _store.Add("SYSTEM", "vPilot", _state.Localize("Odpojen od sítě.", "Disconnected from network."));
+            _store.Add("SYSTEM", "vPilot", _state.Localize(
+                "Odpojen od sítě.", "Disconnected from network.",
+                "Vom Netzwerk getrennt.", "Desconectado de la red.", "已断开网络连接。"));
         }
 
         private void OnRadioMessageReceived(object sender, RadioMessageReceivedEventArgs e)

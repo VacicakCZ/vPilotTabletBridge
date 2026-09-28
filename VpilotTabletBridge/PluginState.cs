@@ -32,13 +32,15 @@ namespace VpilotTabletBridge
         private string _lastTypeCode = "";
         private string _lastSelcal = "";
 
-        // Mirrors the tablet's CS/EN toggle (see index.html's postForm/currentLang),
-        // sent on every action POST - kept here, not just passed per-call, so
-        // SYSTEM messages triggered by a vPilot-side event with no HTTP request
-        // in flight (e.g. connecting from vPilot's own window) still pick the
-        // right language rather than defaulting to English every time. Defaults
-        // to Czech, matching the tablet page's own default.
-        private string _language = "cs";
+        // Mirrors the language the tablet page is actually showing - "cs", "en",
+        // "de", "es" or "zh", resolved from its "follow the app"/EN setting (see index.html's
+        // postForm/currentLang) - sent on every action POST. Kept here, not just
+        // passed per-call, so SYSTEM messages triggered by a vPilot-side event
+        // with no HTTP request in flight (e.g. connecting from vPilot's own
+        // window) still pick the right language rather than defaulting every
+        // time. Defaults to English, the page's own fallback when there is no
+        // app language to follow.
+        private string _language = "en";
 
         private readonly string _prefillPath;
 
@@ -80,17 +82,19 @@ namespace VpilotTabletBridge
             SavePrefill();
         }
 
-        /// <summary>Records the tablet's current UI language, sent on every action POST. Ignores an empty/missing value rather than resetting to Czech.</summary>
+        /// <summary>Records the tablet's current UI language, sent on every action POST. Ignores an empty/missing value rather than resetting to the default.</summary>
         public void SetLanguage(string lang)
         {
             if (string.IsNullOrEmpty(lang)) return;
             lock (_lock) { _language = lang; }
         }
 
-        /// <summary>Picks the Czech or English variant of a server-generated string based on the last-seen UI language. Defaults to Czech, same as the tablet page's own default.</summary>
-        public string Localize(string cs, string en)
+        /// <summary>Picks the variant of a server-generated string that matches the last-seen UI language (see Localizer.Pick; German/Spanish/Chinese fall back to English if omitted). English until a request has said otherwise.</summary>
+        public string Localize(string cs, string en, string de = null, string es = null, string zh = null)
         {
-            lock (_lock) { return string.Equals(_language, "en", StringComparison.OrdinalIgnoreCase) ? en : cs; }
+            string lang;
+            lock (_lock) { lang = _language; }
+            return Localizer.Pick(lang, cs, en, de, es, zh);
         }
 
         public string ToJson()

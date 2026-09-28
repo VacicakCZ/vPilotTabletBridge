@@ -264,9 +264,16 @@ The ⚙ button opens:
 - **VATSIM CID** - optional, per-device; enables the flight-plan quick
   buttons in the Weather panel described above. Leave it blank to skip
   this entirely.
-- **Language** - CS/EN, switches the whole interface instantly. The
-  Controllers In Range panel and its 8 categories stay in English
-  regardless, matching standard ATC phraseology and vPilot's own window.
+- **Language** - "Follow app" or EN, switches the whole interface
+  instantly. "Follow app" takes the language from the FlightOps Hub app when
+  this page is shown inside its Companion page - Czech, English, German,
+  Spanish and Chinese (Simplified), the same five languages the app has;
+  opening this page directly rather than through Companion shows English.
+  German, Spanish and Chinese are AI-translated. The plugin's own system
+  messages in the message log ("Connecting as...", validation errors, ...)
+  follow the same language. The Controllers In Range panel and its 8
+  categories stay in English regardless, matching standard ATC phraseology
+  and vPilot's own window.
 
 ### Controllers In Range
 
