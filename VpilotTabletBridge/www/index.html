@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content">
 <title>vPilot Tablet Bridge</title>
+<script>
+  // Night mode (see "night mode" in the main script) - applied here, before
+  // the first paint, so a page opened while FlightOps Hub's Companion page is
+  // in night mode doesn't flash blue first.
+  try { if (new URLSearchParams(location.search).get('night') === '1') document.documentElement.setAttribute('data-theme', 'night'); } catch (e) { /* ignore */ }
+</script>
 <style>
   :root {
     --bg: #0b0f14;
@@ -25,6 +31,18 @@
     --danger: #ff5c5c;
     --accent: #1f6feb;
   }
+  /* Night mode, driven by FlightOps Hub's Companion page (see the script):
+     the blue/cyan colors - accent, radio, weather - become red/warm ones, the
+     same idea as Companion's own night mode (blue accent -> red), which keeps
+     a tablet in a dim cockpit from ruining night vision. Everything else
+     (green private/ok, purple broadcast, orange sent, red selcal/danger) is
+     untouched: those are status/meaning colors, not brand blue. */
+  :root[data-theme="night"] {
+    --accent: #ff5940;
+    --radio: #ff8a70;
+    --weather: #ffc7a8;
+  }
+  :root[data-theme="night"] .tbtn.primary { color: #0c0c0e; } /* dark text on the lighter red, same as Companion's night accent */
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; padding: 0; height: 100%;
@@ -762,6 +780,23 @@
     resolveLang();
     applyTranslations();
   }
+
+  // ---------- night mode ----------
+  // FlightOps Hub's Companion page, which embeds this page, has a night mode
+  // (blue -> red, see the :root[data-theme="night"] block above). It passes the
+  // state it's in when it opens us as ?night=1 (handled in <head>, before the
+  // first paint) and tells us about every toggle while we're open with
+  // postMessage({ source: 'flightops-companion', type: 'theme', night: bool }).
+  // Only a parent frame is listened to, and the only thing a message can do is
+  // flip this one cosmetic attribute - so there's no origin to pin (the
+  // Companion page's address is the PC's LAN IP + a port, which we don't know).
+  // Opened directly, with no Companion around, this page is never in night mode.
+  window.addEventListener('message', function (ev) {
+    var d = ev.data;
+    if (ev.source !== window.parent || !d || d.source !== 'flightops-companion' || d.type !== 'theme') return;
+    if (d.night === true) document.documentElement.setAttribute('data-theme', 'night');
+    else document.documentElement.removeAttribute('data-theme');
+  });
 
   // On-screen keyboard handling: #app is height:100% of a body with
   // overflow:hidden, which is normally what keeps this feeling like a native

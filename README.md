@@ -274,6 +274,11 @@ The ⚙ button opens:
   follow the same language. The Controllers In Range panel and its 8
   categories stay in English regardless, matching standard ATC phraseology
   and vPilot's own window.
+- **Night mode** - when this page is shown inside FlightOps Hub's Companion
+  page, it follows Companion's night mode: the blue/cyan accent colors turn
+  red (easier on night vision in a dim cockpit). It switches live when night
+  mode is toggled in Companion; opened directly, the page is never in night
+  mode.
 
 ### Controllers In Range
 
