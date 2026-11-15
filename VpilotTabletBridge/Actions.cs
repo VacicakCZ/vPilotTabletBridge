@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 using RossCarlson.Vatsim.Vpilot.Plugins;
@@ -125,6 +127,58 @@ namespace VpilotTabletBridge
             if (succeeded == 0 && lastError != null) throw lastError;
         }
 
+        private static readonly Regex IcaoPattern = new Regex("^[A-Z0-9]{3,4}$");
+
+        /// <summary>
+        /// The tablet's ".ctaf ICAO" - see CtafLookup for why the plugin looks
+        /// this up itself. Returns straight away; the answer (or "none found")
+        /// lands in the message log as a CTAF entry a moment later, the same
+        /// way a METAR result does.
+        /// </summary>
+        public void RequestCtaf(string station, string lang)
+        {
+            station = (station ?? "").Trim().ToUpperInvariant();
+            if (!IcaoPattern.IsMatch(station)) throw new ArgumentException(Msg(lang, "Zadejte ICAO kód letiště.", "Enter an airport ICAO code.",
+                "Geben Sie einen ICAO-Flughafencode ein.", "Introduce un código ICAO de aeropuerto.", "请输入机场 ICAO 代码。"));
+
+            var worker = new Thread(() =>
+            {
+                string text;
+                try
+                {
+                    List<CtafLookup.Station> found = CtafLookup.Find(station);
+                    if (found.Count == 0)
+                    {
+                        text = Msg(lang, "Pro " + station + " nebyla nalezena žádná CTAF frekvence.", "No CTAF frequency was found for " + station + ".",
+                            "Für " + station + " wurde keine CTAF-Frequenz gefunden.", "No se encontró ninguna frecuencia CTAF para " + station + ".",
+                            "未找到 " + station + " 的 CTAF 频率。");
+                    }
+                    else
+                    {
+                        var parts = new List<string>();
+                        foreach (CtafLookup.Station s in found)
+                        {
+                            parts.Add(s.Name.Length > 0 ? s.Frequency + " (" + s.Name + ")" : s.Frequency);
+                        }
+                        string list = string.Join(", ", parts);
+                        text = Msg(lang, "CTAF pro " + station + ": " + list, "CTAF for " + station + ": " + list,
+                            "CTAF für " + station + ": " + list, "CTAF de " + station + ": " + list, station + " 的 CTAF：" + list);
+                    }
+                }
+                catch (Exception)
+                {
+                    text = Msg(lang, "CTAF frekvenci pro " + station + " se nepodařilo zjistit (je PC připojené k internetu?).",
+                        "Couldn't look up the CTAF frequency for " + station + " (is the PC online?).",
+                        "Die CTAF-Frequenz für " + station + " konnte nicht abgerufen werden (ist der PC online?).",
+                        "No se pudo consultar la frecuencia CTAF de " + station + " (¿está el PC conectado a internet?).",
+                        "无法查询 " + station + " 的 CTAF 频率（电脑是否已联网？）。");
+                }
+                _store.Add("CTAF", station, text);
+            })
+            { IsBackground = true, Name = "TabletBridge-Ctaf" };
+            worker.Start();
+        }
+
         public void SetRememberCallsign(bool remember, string lang)
         {
             _state.SetRememberCallsign(remember);
@@ -154,6 +208,10 @@ namespace VpilotTabletBridge
                 "IDENT gesendet.", "IDENT enviado.", "已发送 IDENT。"));
         }
 
+        // A dot followed by a letter, the shape of every vPilot command
+        // (".ctaf", ".x", ".com1", ...). "..." or ".5 miles" don't match.
+        private static readonly Regex DotCommand = new Regex(@"^\.([A-Za-z][A-Za-z0-9]*)");
+
         public void Send(string mode, string to, string message, string lang)
         {
             message = (message ?? "").Trim();
@@ -171,6 +229,27 @@ namespace VpilotTabletBridge
             }
             else
             {
+                // In vPilot's own window ".ctaf KSAN", ".x 7000" etc. are
+                // commands, but the plugin API's SendRadioMessage doesn't parse
+                // them - it transmits the text as-is on the TX frequency, for
+                // everyone tuned in to read (confirmed from vPilot 3.12.1's
+                // broker code: connected/transmitting checks, then straight
+                // out). The tablet page runs the few it can itself (.msg,
+                // .chat, .ctaf, .metar, .atis); anything else that looks like
+                // a command is refused here instead of being broadcast. Also
+                // catches an old cached page that predates that handling.
+                Match command = DotCommand.Match(message);
+                if (command.Success)
+                {
+                    string name = "." + command.Groups[1].Value.ToLowerInvariant();
+                    throw new ArgumentException(Msg(lang,
+                        "Příkaz " + name + " z tabletu spustit nejde - zadejte ho přímo ve vPilotu. Nic nebylo odesláno.",
+                        "The " + name + " command can't be run from the tablet - type it in vPilot itself. Nothing was sent.",
+                        "Der Befehl " + name + " kann nicht vom Tablet ausgeführt werden - geben Sie ihn direkt in vPilot ein. Es wurde nichts gesendet.",
+                        "El comando " + name + " no se puede ejecutar desde la tableta: escríbelo directamente en vPilot. No se ha enviado nada.",
+                        "无法从平板执行 " + name + " 命令 - 请直接在 vPilot 中输入。未发送任何内容。"));
+                }
+
                 _broker.SendRadioMessage(message);
                 _store.Add("SENT_RADIO", Msg(lang, "Vy (radio)", "You (radio)", "Sie (Funk)", "Tú (radio)", "你（无线电）"), message);
             }

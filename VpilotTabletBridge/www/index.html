@@ -164,7 +164,7 @@
   .msg.BROADCAST { border-left-color: var(--broadcast); }
   .msg.SYSTEM { border-left-color: var(--system); }
   .msg.SENT_RADIO, .msg.SENT_PRIVATE { border-left-color: var(--sent); margin-left: 12%; }
-  .msg.METAR, .msg.ATIS { border-left-color: var(--weather); }
+  .msg.METAR, .msg.ATIS, .msg.CTAF { border-left-color: var(--weather); }
   .msg .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 10px; align-items: center; }
   .speak-btn {
     background: none; border: none; font-size: 15px; line-height: 1; padding: 0 2px;
@@ -177,7 +177,7 @@
   .msg.SELCAL .tag { color: var(--selcal); }
   .msg.BROADCAST .tag { color: var(--broadcast); }
   .msg.SENT_RADIO .tag, .msg.SENT_PRIVATE .tag { color: var(--sent); }
-  .msg.METAR .tag, .msg.ATIS .tag { color: var(--weather); }
+  .msg.METAR .tag, .msg.ATIS .tag, .msg.CTAF .tag { color: var(--weather); }
   .msg .text { font-size: 18px; line-height: 1.35; word-wrap: break-word; white-space: pre-wrap; }
   @keyframes flash { 0% { background: var(--row-flash); } 100% { background: var(--row); } }
   #empty { color: var(--muted); text-align: center; padding: 40px 0; font-size: 14px; }
@@ -374,7 +374,7 @@
             <button class="qr-btn" data-phrase="Say again">Say again</button>
           </div>
           <div class="reply-mode">
-            <span class="msg-cmd-hint" data-i18n="msgCmdHint">Tip: napište .msg VOLAČKA zpráva pro private zprávu</span>
+            <span class="msg-cmd-hint" data-i18n="msgCmdHint">Tip: .msg VOLAČKA zpráva pošle private zprávu, .ctaf ICAO zjistí CTAF frekvenci</span>
           </div>
           <div class="reply-row">
             <input type="text" id="replyInput" data-i18n-placeholder="replyPlaceholder" placeholder="Napište zprávu…" autocapitalize="sentences">
@@ -491,7 +491,7 @@
       trafficEmpty: 'Žádný okolní provoz.',
       filterAll: 'Vše', filterSystem: 'Systém', filterForMe: 'Pro mě',
       emptyMessages: 'Zatím žádné zprávy.',
-      msgCmdHint: 'Tip: napište .msg VOLAČKA zpráva pro private zprávu',
+      msgCmdHint: 'Tip: .msg VOLAČKA zpráva pošle private zprávu, .ctaf ICAO zjistí CTAF frekvenci',
       replyPlaceholder: 'Napište zprávu…',
       sendBtn: 'Odeslat',
       notesPlaceholder: 'Poznámky uložené jen v tomto tabletu (lokálně v prohlížeči)…',
@@ -546,7 +546,7 @@
       trafficEmpty: 'No nearby traffic.',
       filterAll: 'All', filterSystem: 'System', filterForMe: 'For me',
       emptyMessages: 'No messages yet.',
-      msgCmdHint: 'Tip: type .msg CALLSIGN message to send a private message',
+      msgCmdHint: 'Tip: .msg CALLSIGN message sends a private message, .ctaf ICAO looks up the CTAF frequency',
       replyPlaceholder: 'Type a message…',
       sendBtn: 'Send',
       notesPlaceholder: 'Notes saved only on this tablet (locally in the browser)…',
@@ -605,7 +605,7 @@
       trafficEmpty: 'Kein Verkehr in der Nähe.',
       filterAll: 'Alle', filterSystem: 'System', filterForMe: 'Für mich',
       emptyMessages: 'Noch keine Nachrichten.',
-      msgCmdHint: 'Tipp: .msg RUFZEICHEN Nachricht eingeben, um eine private Nachricht zu senden',
+      msgCmdHint: 'Tipp: .msg RUFZEICHEN Nachricht sendet eine private Nachricht, .ctaf ICAO zeigt die CTAF-Frequenz',
       replyPlaceholder: 'Nachricht eingeben…',
       sendBtn: 'Senden',
       notesPlaceholder: 'Notizen, die nur auf diesem Tablet gespeichert werden (lokal im Browser)…',
@@ -660,7 +660,7 @@
       trafficEmpty: 'Sin tráfico cercano.',
       filterAll: 'Todo', filterSystem: 'Sistema', filterForMe: 'Para mí',
       emptyMessages: 'Aún no hay mensajes.',
-      msgCmdHint: 'Consejo: escribe .msg INDICATIVO mensaje para enviar un mensaje privado',
+      msgCmdHint: 'Consejo: .msg INDICATIVO mensaje envía un mensaje privado, .ctaf ICAO muestra la frecuencia CTAF',
       replyPlaceholder: 'Escribe un mensaje…',
       sendBtn: 'Enviar',
       notesPlaceholder: 'Notas guardadas solo en esta tablet (localmente en el navegador)…',
@@ -715,7 +715,7 @@
       trafficEmpty: '附近没有交通。',
       filterAll: '全部', filterSystem: '系统', filterForMe: '给我',
       emptyMessages: '暂无消息。',
-      msgCmdHint: '提示：输入 .msg 呼号 消息 可发送私信',
+      msgCmdHint: '提示：输入 .msg 呼号 消息 可发送私信，输入 .ctaf ICAO 可查询 CTAF 频率',
       replyPlaceholder: '输入消息…',
       sendBtn: '发送',
       notesPlaceholder: '笔记仅保存在此平板上（本地保存在浏览器中）…',
@@ -1539,7 +1539,7 @@
   // Some filter buttons cover more than one underlying message type. Private
   // messages never show here at all now - they live entirely in their own
   // Private tab/conversation threads instead.
-  var FILTER_GROUPS = { WEATHER: ['METAR', 'ATIS'] };
+  var FILTER_GROUPS = { WEATHER: ['METAR', 'ATIS', 'CTAF'] };
   function matchesFilter(m) {
     if (m.type === 'PRIVATE' || m.type === 'SENT_PRIVATE') return false;
     if (activeFilter === 'FORME') {
@@ -1639,7 +1639,7 @@
               if (m.type === 'SELCAL') considerSwitch('SELCAL', 3);
               else if (m.type === 'PRIVATE' && m.peer) { considerSwitch('PRIVATE', 2); switchPeer = m.peer.toUpperCase(); }
               else if (m.type === 'RADIO' && myCallsign && m.text.toUpperCase().indexOf(myCallsign) !== -1) considerSwitch('RADIO', 1);
-              else if (m.type === 'METAR' || m.type === 'ATIS') considerSwitch('WEATHER', 0);
+              else if (m.type === 'METAR' || m.type === 'ATIS' || m.type === 'CTAF') considerSwitch('WEATHER', 0);
             }
           }
           if (m.id > newMax) newMax = m.id;
@@ -2257,6 +2257,14 @@
   // callsign it just opens that conversation, ready to type into.
   var MSG_COMMAND = /^\.(msg|chat)\s+(\S+)(?:\s+([\s\S]+))?$/i;
 
+  // vPilot's other dot commands the tablet can do itself. Everything typed
+  // here would otherwise go out as a radio *text* - the plugin API never
+  // runs commands, it transmits them verbatim on frequency (see
+  // Actions.Send) - so these are mapped onto the page's own actions
+  // instead. Any other ".something" is passed on and refused by the server
+  // with an explanation, never transmitted.
+  var DOT_COMMAND = /^\.(ctaf|metar|atis)(?=\s|$)\s*(\S*)/i;
+
   function sendReply() {
     var input = document.getElementById('replyInput');
     var text = input.value.trim();
@@ -2272,7 +2280,24 @@
       return;
     }
 
-    postForm('/api/send', { mode: 'radio', message: text });
+    // If the server refuses it (an unsupported .command, not transmitting,
+    // ...) the reason shows as a toast - put the text back so it isn't lost,
+    // unless something new has been typed in the meantime.
+    function restoreOnFailure(result) {
+      if (result && !result.ok && !input.value) input.value = text;
+    }
+
+    var dot = text.match(DOT_COMMAND);
+    if (dot) {
+      var name = dot[1].toLowerCase(), arg = dot[2];
+      input.value = '';
+      (name === 'ctaf' ? postForm('/api/ctaf', { station: arg })
+        : name === 'metar' ? postForm('/api/metar', { station: arg })
+        : postForm('/api/atis', { callsign: arg })).then(restoreOnFailure);
+      return;
+    }
+
+    postForm('/api/send', { mode: 'radio', message: text }).then(restoreOnFailure);
     input.value = '';
   }
   document.getElementById('btnSend').addEventListener('click', sendReply);

@@ -203,6 +203,12 @@ namespace VpilotTabletBridge
                 return;
             }
 
+            if (method == "POST" && path == "/api/ctaf")
+            {
+                RunAction(stream, body, form => _actions.RequestCtaf(form.Get("station"), form.Get("lang")));
+                return;
+            }
+
             if (method == "POST" && path == "/api/settings")
             {
                 RunAction(stream, body, form => _actions.SetRememberCallsign(form.Get("rememberCallsign") == "1", form.Get("lang")));

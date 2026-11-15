@@ -136,6 +136,21 @@ The bar at the bottom sends on the **current radio frequency**. Seven
 quick-reply buttons (Wilco / Roger / Affirm / Negative / Standby / Unable /
 Say again) send that phrase immediately.
 
+A few of vPilot's own dot commands work in that box too:
+- `.ctaf ICAO` (e.g. `.ctaf KSAN`) - looks up the airport's CTAF frequency
+  the same way vPilot/xPilot do (VATSIM's public AIP data; the PC needs
+  internet, which it has while connected). The answer appears in the log
+  under the "METAR/ATIS" filter, or "No CTAF frequency was found" if the
+  airport has none.
+- `.metar ICAO` and `.atis ICAO` - the same as the ☁ panel (see below).
+- `.msg` / `.chat` - see "Private conversations" below.
+
+Any other dot command (`.x 7000`, `.com1 ...` etc.) can't be run from the
+tablet - vPilot's plugin interface doesn't offer them - so the tablet
+refuses it with a short note and leaves the text in the box. It never
+sends it as a radio message (which is what versions before this fix did:
+the text went out on frequency as-is and vPilot didn't run it as a command).
+
 ### Private conversations
 
 Private messages get their own **Private** tab, one conversation per
@@ -400,6 +415,7 @@ VpilotTabletBridge/
   Controllers.cs               - "Controllers In Range" snapshot, categorized like vPilot's own list
   Traffic.cs                    - nearby-aircraft snapshot for the Traffic tab
   Actions.cs                   - tablet-triggered actions (connect/disconnect/send) against the broker
+  CtafLookup.cs                - the ".ctaf ICAO" lookup (VATSIM's public AIP data, over HTTPS)
   Json.cs                      - tiny shared JSON escaping/formatting helpers
   WebServer.cs                 - TcpListener-based HTTP server, serves the page + JSON API
   www/index.html                - the tablet page (HTML/CSS/JS, embedded as a resource)

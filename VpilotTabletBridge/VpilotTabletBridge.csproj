@@ -23,6 +23,8 @@
       <HintPath>..\lib\RossCarlson.Vatsim.Vpilot.Plugins.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Part of .NET Framework itself (JavaScriptSerializer, for reading the CTAF lookup's JSON reply) - not an extra dependency. -->
+    <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 
   <ItemGroup>
