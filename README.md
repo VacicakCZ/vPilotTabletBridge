@@ -260,7 +260,22 @@ plugin API doesn't report the transponder's actual state back to plugins.
 It resets to "off" on every page load rather than persisting a guess
 across sessions. IDENT lights up green for 18 seconds after a tap,
 matching how long it stays lit in vPilot itself; tapping it again resets
-that 18 seconds instead of cutting it short.
+that 18 seconds instead of cutting it short. If vPilot refuses a Mode C tap
+(typically because it is not connected), the button goes back instead of
+claiming it worked.
+
+**Seeing the real state (inside FlightOps Hub's Companion).** Flipping the
+transponder in the cockpit is invisible to a plugin on its own. When this
+page is open in the vPilot tab of FlightOps Hub's Companion, and the *In
+flight* switch is on there, the Companion reads the aircraft's own
+transponder from the simulator and tells this page: Mode C then follows
+the real mode (green for ON and ALT, which is when the transponder answers)
+and a small label next to it shows the mode and squawk, for example
+`ALT 2000`. If the aircraft does not report a transponder, nothing is
+shown instead of a guess. Opened directly in a browser, or with the switch
+off, the button works as described above. A tap on the tablet is trusted
+for a few seconds before the reading is allowed to correct it, so the
+button does not flicker back while the change travels to the sim.
 
 ### Notes
 

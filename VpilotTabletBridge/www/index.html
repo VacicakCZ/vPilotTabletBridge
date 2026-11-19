@@ -78,6 +78,9 @@
   .tbtn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .tbtn.danger { background: #3a1414; border-color: var(--danger); color: #ffb4b4; }
   .tbtn.on { background: #14351f; border-color: var(--ok); color: #b9f5cf; }
+  /* The aircraft's real transponder mode + squawk, shown only when FlightOps Hub tells us (see "transponder" below). */
+  .xpdr-readout { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .xpdr-readout.on { color: #b9f5cf; }
   .tbtn.icon-btn { padding: 8px 10px; font-size: 16px; line-height: 1; }
   .conn-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; white-space: nowrap; }
   .conn-pill .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--off); }
@@ -268,6 +271,7 @@
     <div class="toolbar-left">
       <button class="tbtn primary" id="btnConnectToggle" data-i18n="connect">Připojit</button>
       <button class="tbtn" id="btnModeCToggle" data-i18n="modeCBtn" data-i18n-title="modeCTitle" title="Mode C je jednosměrný příkaz - vPilot pluginům neříká skutečný stav transpondéru.">Mode C</button>
+      <span class="xpdr-readout" id="xpdrReadout" hidden></span>
       <button class="tbtn" id="btnIdent" data-i18n="identBtn">IDENT</button>
     </div>
     <div class="toolbar-right">
@@ -751,6 +755,19 @@
     currentLang = followApp ? appLangHint : 'en';
   }
   resolveLang();
+
+  // Same idea as the language hint above, for the pilot's VATSIM CID: when
+  // this page is opened inside FlightOps Hub's Companion iframe, ?cid=
+  // carries whatever is set in its own Settings tab - synced into this
+  // page's own localStorage (what vatsimCid() below reads) so the
+  // flight-plan buttons work without typing it again here. Only a
+  // non-empty hint overwrites what's already saved, so opening this page
+  // directly (no ?cid= at all, e.g. bookmarked) never clears a CID entered
+  // by hand.
+  try {
+    var cidHint = new URLSearchParams(location.search).get('cid');
+    if (cidHint) localStorage.setItem('tabletbridge-vatsim-cid', cidHint.trim());
+  } catch (e) { /* ignore */ }
 
   function t(key) {
     return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || I18N.cs[key] || key;
@@ -1890,16 +1907,64 @@
     togglePanel('weatherPanel');
   });
 
-  // Mode C shows green while "on" the way vPilot's own app does, but this
-  // is only ever what this tablet last told it, never confirmed - vPilot's
-  // plugin API has no getter for the transponder's actual state. Resets to
-  // "off" on every page load rather than persisting a guess across
-  // sessions, since there's no way to re-sync it against reality anyway.
+  // Mode C shows green while "on" the way vPilot's own app does, but on its
+  // own this is only ever what this tablet last told it, never confirmed -
+  // vPilot's plugin API has no getter for the transponder's actual state.
+  // Resets to "off" on every page load rather than persisting a guess across
+  // sessions. The one way to learn the real state is FlightOps Hub's
+  // Companion (when this page is embedded in it): see the "transponder"
+  // message below, which then overrides this guess.
   var modeCOn = false;
-  document.getElementById('btnModeCToggle').addEventListener('click', function () {
-    modeCOn = !modeCOn;
-    this.classList.toggle('on', modeCOn);
-    postForm('/api/modec', { on: modeCOn ? '1' : '0' });
+  var lastModeCTapAt = 0;
+  var modeCBtn = document.getElementById('btnModeCToggle');
+  modeCBtn.addEventListener('click', function () {
+    var wanted = !modeCOn;
+    modeCOn = wanted;
+    modeCBtn.classList.toggle('on', wanted);
+    lastModeCTapAt = Date.now();
+    postForm('/api/modec', { on: wanted ? '1' : '0' }).then(function (result) {
+      if (result && result.ok) return;
+      // vPilot refused (typically: not connected to VATSIM) or the bridge did
+      // not answer - the tap did nothing, so don't leave the button claiming
+      // it did.
+      modeCOn = !wanted;
+      modeCBtn.classList.toggle('on', modeCOn);
+    });
+  });
+
+  // ---------- transponder: what the aircraft really does ----------
+  // Switching the transponder in the cockpit is invisible to this page - the
+  // plugin API cannot tell us - but the sim knows, and FlightOps Hub reads it.
+  // The Companion page that embeds us hands it over while this tab is open:
+  // postMessage({ source: 'flightops-companion', type: 'transponder',
+  // mode: 'off'|'standby'|'test'|'on'|'alt'|'ground'|null, code: '2000'|null }).
+  // Same rules as the theme message: only the parent frame is listened to,
+  // and every field is checked against a fixed list or pattern before it is
+  // used - the only things it can do are light the Mode C button and print
+  // a short label. mode null means "couldn't read it" (sim not running, add-on
+  // aircraft, ...) and changes nothing: not knowing is not the same as "off".
+  // "on" and "alt" are the two where the transponder answers - the state
+  // vPilot calls Mode C - and make the button green exactly as a tap would.
+  var XPDR_LABELS = { off: 'OFF', standby: 'STBY', test: 'TEST', on: 'ON', alt: 'ALT', ground: 'GND' };
+  var xpdrReadout = document.getElementById('xpdrReadout');
+  window.addEventListener('message', function (ev) {
+    var d = ev.data;
+    if (ev.source !== window.parent || !d || d.source !== 'flightops-companion' || d.type !== 'transponder') return;
+
+    var known = typeof d.mode === 'string' && Object.prototype.hasOwnProperty.call(XPDR_LABELS, d.mode);
+    if (!known) { xpdrReadout.hidden = true; return; }
+    // A tap needs a moment to reach vPilot and the sim and come back as a
+    // new reading; until then the reading still shows the old state and
+    // would flip the button straight back.
+    if (Date.now() - lastModeCTapAt < 4000) return;
+
+    var code = typeof d.code === 'string' && /^[0-7]{4}$/.test(d.code) ? d.code : '';
+    var answering = d.mode === 'on' || d.mode === 'alt';
+    modeCOn = answering;
+    modeCBtn.classList.toggle('on', answering);
+    xpdrReadout.textContent = XPDR_LABELS[d.mode] + (code ? ' ' + code : '');
+    xpdrReadout.classList.toggle('on', answering);
+    xpdrReadout.hidden = false;
   });
   var identTimer = null;
   document.getElementById('btnIdent').addEventListener('click', function () {
